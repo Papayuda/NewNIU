@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { login } from '../api';
+import { login, getSavedCredentials } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 const COUNTRY_CODES = [
@@ -33,6 +33,16 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { setAuthenticated } = useAuth();
 
+  useEffect(() => {
+    getSavedCredentials().then((creds) => {
+      if (creds) {
+        setAccount(creds.account);
+        setPassword(creds.password);
+        setCountryCode(creds.countryCode);
+      }
+    });
+  }, []);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -49,7 +59,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dark-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-dark-900 flex items-center justify-center p-4 safe-area-top">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-niu-red to-niu-cyan mx-auto mb-4 flex items-center justify-center shadow-2xl shadow-niu-red/20">
@@ -97,6 +107,8 @@ export default function LoginPage() {
                 onChange={(e) => setAccount(e.target.value)}
                 placeholder="your@email.com"
                 required
+                autoCapitalize="off"
+                autoCorrect="off"
                 className="w-full bg-dark-700 border border-dark-500 rounded-xl px-4 py-3 text-text-primary placeholder-text-muted focus:outline-none focus:border-niu-cyan transition-colors"
               />
             </div>
@@ -141,7 +153,7 @@ export default function LoginPage() {
           </button>
 
           <p className="text-center text-text-muted text-xs mt-6">
-            Uses the NIU Cloud API. Your credentials are sent directly to NIU servers.
+            Credentials are stored locally on this device. Data is sent directly to NIU servers.
           </p>
         </form>
       </div>

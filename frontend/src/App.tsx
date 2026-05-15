@@ -8,10 +8,19 @@ import MotorPage from './pages/MotorPage';
 import LocationPage from './pages/LocationPage';
 import TripsPage from './pages/TripsPage';
 import FirmwarePage from './pages/FirmwarePage';
+import LightingPage from './pages/LightingPage';
+import LoadingSpinner from './components/LoadingSpinner';
 import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { authenticated } = useAuth();
+  const { authenticated, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-dark-900">
+        <LoadingSpinner />
+      </div>
+    );
+  }
   if (!authenticated) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
@@ -20,13 +29,21 @@ function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-dark-900">
       <Sidebar />
-      <main className="flex-1 ml-64 p-8">{children}</main>
+      <main className="flex-1 ml-0 md:ml-64 pb-20 md:pb-0 p-4 md:p-8">{children}</main>
     </div>
   );
 }
 
 function AppRoutes() {
-  const { authenticated } = useAuth();
+  const { authenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-dark-900">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <Routes>
@@ -90,6 +107,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <AppLayout>
               <FirmwarePage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/lighting"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <LightingPage />
             </AppLayout>
           </ProtectedRoute>
         }

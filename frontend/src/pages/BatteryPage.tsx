@@ -36,14 +36,14 @@ export default function BatteryPage() {
     })();
   }, []);
 
-  const loadData = useCallback(async () => {
-    if (!sn) return;
+  const loadData = useCallback(async (serial: string) => {
+    if (!serial) return;
     setLoading(true);
     try {
       const [i, h, c] = await Promise.all([
-        getBatteryInfo(sn),
-        getBatteryHealth(sn),
-        getBatteryChart(sn),
+        getBatteryInfo(serial),
+        getBatteryHealth(serial),
+        getBatteryChart(serial),
       ]);
       setInfo(i);
       setHealth(h);
@@ -53,11 +53,12 @@ export default function BatteryPage() {
     } finally {
       setLoading(false);
     }
-  }, [sn]);
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching
+    if (sn) void loadData(sn);
+  }, [sn, loadData]);
 
   if (loading) return <LoadingSpinner message="Loading battery data..." />;
 
@@ -86,7 +87,7 @@ export default function BatteryPage() {
           <p className="text-text-muted text-sm mt-1">Battery status and diagnostics</p>
         </div>
         <button
-          onClick={loadData}
+          onClick={() => void loadData(sn)}
           className="p-2.5 rounded-xl bg-dark-700 border border-dark-500 text-text-secondary hover:text-niu-cyan hover:border-niu-cyan/50 transition-all"
         >
           <RefreshCw className="w-5 h-5" />

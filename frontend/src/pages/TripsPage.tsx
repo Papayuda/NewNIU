@@ -29,22 +29,23 @@ export default function TripsPage() {
     })();
   }, []);
 
-  const loadData = useCallback(async () => {
-    if (!sn) return;
+  const loadData = useCallback(async (serial: string, p: number) => {
+    if (!serial) return;
     setLoading(true);
     try {
-      const data = await getTracks(sn, page);
+      const data = await getTracks(serial, p);
       setTracks(((data as Record<string, unknown[]>)?.items ?? []) as Track[]);
     } catch {
       /* handled */
     } finally {
       setLoading(false);
     }
-  }, [sn, page]);
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching
+    if (sn) void loadData(sn, page);
+  }, [sn, page, loadData]);
 
   if (loading && tracks.length === 0) return <LoadingSpinner message="Loading trip history..." />;
 
@@ -56,7 +57,7 @@ export default function TripsPage() {
           <p className="text-text-muted text-sm mt-1">Past rides and route data</p>
         </div>
         <button
-          onClick={loadData}
+          onClick={() => void loadData(sn, page)}
           className="p-2.5 rounded-xl bg-dark-700 border border-dark-500 text-text-secondary hover:text-niu-cyan hover:border-niu-cyan/50 transition-all"
         >
           <RefreshCw className="w-5 h-5" />

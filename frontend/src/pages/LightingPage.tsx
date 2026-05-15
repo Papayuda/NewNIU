@@ -1,0 +1,635 @@
+import { useEffect, useState, useCallback } from 'react';
+import {
+  Bluetooth,
+  BluetoothOff,
+  Power,
+  Sun,
+  Zap,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check,
+} from 'lucide-react';
+import { bleLed, EFFECTS, ZONES, type LEDState } from '../services/ble-led';
+
+const PRESET_COLORS = [
+  '#ff0000', '#ff4500', '#ff8c00', '#ffd700',
+  '#00ff00', '#00fa9a', '#00ffff', '#00bfff',
+  '#0000ff', '#8a2be2', '#ff00ff', '#ff1493',
+  '#ffffff', '#ffb6c1', '#98fb98', '#87cefa',
+];
+
+export default function LightingPage() {
+  const [connected, setConnected] = useState(false);
+  const [deviceName, setDeviceName] = useState('');
+  const [connecting, setConnecting] = useState(false);
+  const [error, setError] = useState('');
+  const [state, setState] = useState<LEDState>({
+    color: '#ff0000',
+    effectId: 0,
+    brightness: 128,
+    speed: 50,
+    power: true,
+    zoneMask: 0x01,
+  });
+  const [sketchOpen, setSketchOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const unsubConn = bleLed.onConnectionChange((isConnected, name) => {
+      setConnected(isConnected);
+      setDeviceName(name ?? '');
+      if (!isConnected) setError('');
+    });
+    const unsubState = bleLed.onStateChange((partial) => {
+      setState((prev) => ({ ...prev, ...partial }));
+    });
+    return () => {
+      unsubConn();
+      unsubState();
+    };
+  }, []);
+
+  const handleConnect = useCallback(async () => {
+    setConnecting(true);
+    setError('');
+    try {
+      await bleLed.connect();
+      const s = await bleLed.readState();
+      setState(s);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Connection failed');
+    } finally {
+      setConnecting(false);
+    }
+  }, []);
+
+  const handleDisconnect = useCallback(async () => {
+    await bleLed.disconnect();
+  }, []);
+
+  const handleColorChange = useCallback(async (color: string) => {
+    setState((prev) => ({ ...prev, color }));
+    if (connected) {
+      try { await bleLed.setColor(color); } catch { /* offline fallback */ }
+    }
+  }, [connected]);
+
+  const handleEffectChange = useCallback(async (effectId: number) => {
+    setState((prev) => ({ ...prev, effectId }));
+    if (connected) {
+      try { await bleLed.setEffect(effectId); } catch { /* offline fallback */ }
+    }
+  }, [connected]);
+
+  const handleBrightnessChange = useCallback(async (brightness: number) => {
+    setState((prev) => ({ ...prev, brightness }));
+    if (connected) {
+      try { await bleLed.setBrightness(brightness); } catch { /* offline fallback */ }
+    }
+  }, [connected]);
+
+  const handleSpeedChange = useCallback(async (speed: number) => {
+    setState((prev) => ({ ...prev, speed }));
+    if (connected) {
+      try { await bleLed.setSpeed(speed); } catch { /* offline fallback */ }
+    }
+  }, [connected]);
+
+  const handlePowerToggle = useCallback(async () => {
+    const newPower = !state.power;
+    setState((prev) => ({ ...prev, power: newPower }));
+    if (connected) {
+      try { await bleLed.setPower(newPower); } catch { /* offline fallback */ }
+    }
+  }, [connected, state.power]);
+
+  const handleZoneToggle = useCallback(async (bit: number) => {
+    const newMask = state.zoneMask ^ (1 << bit);
+    setState((prev) => ({ ...prev, zoneMask: newMask }));
+    if (connected) {
+      try { await bleLed.setZones(newMask); } catch { /* offline fallback */ }
+    }
+  }, [connected, state.zoneMask]);
+
+  const copySketch = useCallback(() => {
+    navigator.clipboard.writeText(ESP32_SKETCH);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, []);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Ambient Lighting</h1>
+          <p className="text-text-muted text-sm mt-1">FastLED control via encrypted Bluetooth</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handlePowerToggle}
+            className={`p-2.5 rounded-xl border transition-all ${
+              state.power
+                ? 'bg-niu-cyan/15 border-niu-cyan/50 text-niu-cyan'
+                : 'bg-dark-700 border-dark-500 text-text-muted'
+            }`}
+          >
+            <Power className="w-5 h-5" />
+          </button>
+          {connected ? (
+            <button
+              onClick={handleDisconnect}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/50 text-emerald-400 text-sm font-medium hover:bg-emerald-500/25 transition-all"
+            >
+              <Bluetooth className="w-4 h-4" />
+              {deviceName || 'Connected'}
+            </button>
+          ) : (
+            <button
+              onClick={handleConnect}
+              disabled={connecting}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-dark-700 border border-dark-500 text-text-secondary text-sm font-medium hover:text-niu-cyan hover:border-niu-cyan/50 transition-all disabled:opacity-50"
+            >
+              {connecting ? (
+                <div className="w-4 h-4 border-2 border-niu-cyan/30 border-t-niu-cyan rounded-full animate-spin" />
+              ) : (
+                <BluetoothOff className="w-4 h-4" />
+              )}
+              {connecting ? 'Scanning...' : 'Connect BLE'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-6 p-4 rounded-xl bg-niu-red/10 border border-niu-red/30 text-niu-red text-sm">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Color Picker */}
+        <div className="bg-dark-800 rounded-2xl p-6 border border-dark-600">
+          <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-niu-cyan" />
+            Color
+          </h2>
+          <div className="flex items-center gap-4 mb-4">
+            <input
+              type="color"
+              value={state.color}
+              onChange={(e) => handleColorChange(e.target.value)}
+              className="w-16 h-16 rounded-xl border-2 border-dark-500 cursor-pointer bg-transparent"
+            />
+            <div>
+              <p className="text-text-primary font-mono text-lg">{state.color.toUpperCase()}</p>
+              <p className="text-text-muted text-xs">Tap the swatch or pick a preset below</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-8 gap-2">
+            {PRESET_COLORS.map((c) => (
+              <button
+                key={c}
+                onClick={() => handleColorChange(c)}
+                className={`w-full aspect-square rounded-lg border-2 transition-all hover:scale-110 ${
+                  state.color === c ? 'border-white shadow-lg' : 'border-dark-500'
+                }`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Effects */}
+        <div className="bg-dark-800 rounded-2xl p-6 border border-dark-600">
+          <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <Zap className="w-5 h-5 text-violet-400" />
+            Effects
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            {EFFECTS.map((effect) => (
+              <button
+                key={effect.id}
+                onClick={() => handleEffectChange(effect.id)}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  state.effectId === effect.id
+                    ? 'bg-violet-500/15 border-violet-500/50 text-violet-300'
+                    : 'bg-dark-700 border-dark-500 text-text-secondary hover:border-dark-400'
+                }`}
+              >
+                <p className="text-sm font-medium">{effect.name}</p>
+                <p className="text-xs text-text-muted mt-0.5">{effect.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Brightness & Speed */}
+        <div className="bg-dark-800 rounded-2xl p-6 border border-dark-600">
+          <h2 className="text-lg font-semibold text-text-primary mb-5 flex items-center gap-2">
+            <Sun className="w-5 h-5 text-amber-400" />
+            Controls
+          </h2>
+          <div className="space-y-6">
+            <div>
+              <div className="flex justify-between mb-2">
+                <span className="text-sm text-text-secondary">Brightness</span>
+                <span className="text-sm font-mono text-text-primary">{state.brightness}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={255}
+                value={state.brightness}
+                onChange={(e) => handleBrightnessChange(Number(e.target.value))}
+                className="w-full h-2 bg-dark-600 rounded-full appearance-none cursor-pointer accent-amber-400"
+              />
+            </div>
+            <div>
+              <div className="flex justify-between mb-2">
+                <span className="text-sm text-text-secondary">Effect Speed</span>
+                <span className="text-sm font-mono text-text-primary">{state.speed}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={255}
+                value={state.speed}
+                onChange={(e) => handleSpeedChange(Number(e.target.value))}
+                className="w-full h-2 bg-dark-600 rounded-full appearance-none cursor-pointer accent-niu-cyan"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Zones */}
+        <div className="bg-dark-800 rounded-2xl p-6 border border-dark-600">
+          <h2 className="text-lg font-semibold text-text-primary mb-4">LED Zones</h2>
+          <div className="space-y-2">
+            {ZONES.map((zone) => {
+              const active = (state.zoneMask & (1 << zone.bit)) !== 0;
+              return (
+                <button
+                  key={zone.bit}
+                  onClick={() => handleZoneToggle(zone.bit)}
+                  className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${
+                    active
+                      ? 'bg-niu-cyan/10 border-niu-cyan/40 text-niu-cyan'
+                      : 'bg-dark-700 border-dark-500 text-text-muted hover:border-dark-400'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">{zone.icon}</span>
+                    <span className="text-sm font-medium">{zone.name}</span>
+                  </div>
+                  <div
+                    className={`w-10 h-6 rounded-full transition-colors relative ${
+                      active ? 'bg-niu-cyan' : 'bg-dark-500'
+                    }`}
+                  >
+                    <div
+                      className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                        active ? 'left-5' : 'left-1'
+                      }`}
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Live Preview */}
+      <div className="bg-dark-800 rounded-2xl p-6 border border-dark-600 mb-6">
+        <h2 className="text-lg font-semibold text-text-primary mb-4">Live Preview</h2>
+        <div className="relative w-full h-48 rounded-xl bg-dark-900 overflow-hidden flex items-center justify-center">
+          {state.power ? (
+            <>
+              <div
+                className="absolute inset-0 opacity-30 transition-all duration-500"
+                style={{
+                  background: `radial-gradient(ellipse at center, ${state.color}66 0%, transparent 70%)`,
+                }}
+              />
+              <div className="relative flex flex-col items-center gap-2">
+                <div
+                  className="w-20 h-20 rounded-full shadow-2xl transition-all duration-300"
+                  style={{
+                    backgroundColor: state.color,
+                    opacity: state.brightness / 255,
+                    boxShadow: `0 0 ${40 + state.brightness / 3}px ${state.color}`,
+                    animation: state.effectId === 1
+                      ? 'pulse 2s ease-in-out infinite'
+                      : state.effectId === 4
+                        ? 'pulse 0.1s ease-in-out infinite'
+                        : undefined,
+                  }}
+                />
+                <span className="text-text-muted text-xs">
+                  {EFFECTS.find((e) => e.id === state.effectId)?.name ?? 'Unknown'}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="text-text-muted flex flex-col items-center gap-2">
+              <Power className="w-10 h-10" />
+              <span className="text-sm">LEDs Off</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ESP32 Sketch */}
+      <div className="bg-dark-800 rounded-2xl border border-dark-600 overflow-hidden">
+        <button
+          onClick={() => setSketchOpen(!sketchOpen)}
+          className="w-full flex items-center justify-between p-6 text-left hover:bg-dark-700 transition-colors"
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">ESP32 Arduino Sketch</h2>
+            <p className="text-text-muted text-sm mt-1">
+              Ready-to-flash code for ESP32 + FastLED with encrypted BLE
+            </p>
+          </div>
+          {sketchOpen ? (
+            <ChevronUp className="w-5 h-5 text-text-muted" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-text-muted" />
+          )}
+        </button>
+        {sketchOpen && (
+          <div className="border-t border-dark-600">
+            <div className="flex justify-end p-2 bg-dark-900">
+              <button
+                onClick={copySketch}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-700 border border-dark-500 text-text-secondary text-xs hover:text-niu-cyan hover:border-niu-cyan/50 transition-all"
+              >
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            <pre className="p-6 text-sm text-text-secondary overflow-x-auto bg-dark-900 font-mono leading-relaxed max-h-[500px] overflow-y-auto">
+              {ESP32_SKETCH}
+            </pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const ESP32_SKETCH = `/*
+ * NIU Controller — FastLED BLE Ambient Lighting
+ *
+ * Hardware: ESP32 + WS2812B LED strip
+ * Dependencies: FastLED, ESP32 BLE Arduino
+ *
+ * BLE Service: 0xFF00 (encrypted, bonded pairing)
+ * Characteristics:
+ *   0xFF01 — Color (3 bytes: R, G, B)
+ *   0xFF02 — Effect (1 byte: 0-9)
+ *   0xFF03 — Brightness (1 byte: 0-255)
+ *   0xFF04 — Speed (1 byte: 0-255)
+ *   0xFF05 — Power (1 byte: 0/1)
+ *   0xFF06 — Zones (1 byte: bitmask)
+ */
+
+#include <FastLED.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+#include <BLESecurity.h>
+
+// ─── LED Configuration ───
+#define LED_PIN       5
+#define NUM_LEDS      60
+#define LED_TYPE      WS2812B
+#define COLOR_ORDER   GRB
+#define MAX_BRIGHTNESS 255
+
+CRGB leds[NUM_LEDS];
+
+// ─── BLE UUIDs ───
+#define SERVICE_UUID        "0000ff00-0000-1000-8000-00805f9b34fb"
+#define CHAR_COLOR_UUID     "0000ff01-0000-1000-8000-00805f9b34fb"
+#define CHAR_EFFECT_UUID    "0000ff02-0000-1000-8000-00805f9b34fb"
+#define CHAR_BRIGHT_UUID    "0000ff03-0000-1000-8000-00805f9b34fb"
+#define CHAR_SPEED_UUID     "0000ff04-0000-1000-8000-00805f9b34fb"
+#define CHAR_POWER_UUID     "0000ff05-0000-1000-8000-00805f9b34fb"
+#define CHAR_ZONES_UUID     "0000ff06-0000-1000-8000-00805f9b34fb"
+
+// ─── State ───
+uint8_t currentR = 255, currentG = 0, currentB = 0;
+uint8_t currentEffect = 0;
+uint8_t currentBrightness = 128;
+uint8_t currentSpeed = 50;
+bool    currentPower = true;
+uint8_t currentZones = 0x01;
+bool    deviceConnected = false;
+uint8_t hueOffset = 0;
+
+// ─── BLE Callbacks ───
+class ServerCallbacks : public BLEServerCallbacks {
+  void onConnect(BLEServer* s)    { deviceConnected = true;  }
+  void onDisconnect(BLEServer* s) { deviceConnected = false; }
+};
+
+class ColorCallback : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) {
+    uint8_t* d = c->getData();
+    if (c->getLength() >= 3) {
+      currentR = d[0]; currentG = d[1]; currentB = d[2];
+    }
+  }
+};
+
+class EffectCallback : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) {
+    if (c->getLength() >= 1) currentEffect = c->getData()[0];
+  }
+};
+
+class BrightCallback : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) {
+    if (c->getLength() >= 1) {
+      currentBrightness = c->getData()[0];
+      FastLED.setBrightness(currentBrightness);
+    }
+  }
+};
+
+class SpeedCallback : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) {
+    if (c->getLength() >= 1) currentSpeed = c->getData()[0];
+  }
+};
+
+class PowerCallback : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) {
+    if (c->getLength() >= 1) currentPower = c->getData()[0] == 1;
+  }
+};
+
+class ZonesCallback : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) {
+    if (c->getLength() >= 1) currentZones = c->getData()[0];
+  }
+};
+
+// ─── Security (encrypted bonding) ───
+class SecurityCallback : public BLESecurityCallbacks {
+  uint32_t onPassKeyRequest() { return 123456; }
+  void onPassKeyNotify(uint32_t passkey) {}
+  bool onConfirmPIN(uint32_t pin) { return true; }
+  bool onSecurityRequest() { return true; }
+  void onAuthenticationComplete(esp_ble_auth_cmpl_t auth) {}
+};
+
+// ─── Effects ───
+void effectSolid() {
+  fill_solid(leds, NUM_LEDS, CRGB(currentR, currentG, currentB));
+}
+
+void effectBreathing() {
+  uint8_t breath = beatsin8(60000 / max((int)currentSpeed * 40, 1), 20, 255);
+  fill_solid(leds, NUM_LEDS, CRGB(currentR, currentG, currentB));
+  fadeToBlackBy(leds, NUM_LEDS, 255 - breath);
+}
+
+void effectRainbow() {
+  fill_rainbow(leds, NUM_LEDS, hueOffset, 7);
+  hueOffset += max(1, currentSpeed / 25);
+}
+
+void effectColorCycle() {
+  CRGB color = CHSV(hueOffset, 255, 255);
+  fill_solid(leds, NUM_LEDS, color);
+  hueOffset += max(1, currentSpeed / 50);
+}
+
+void effectStrobe() {
+  EVERY_N_MILLISECONDS(max(20, 255 - currentSpeed)) {
+    static bool on = false;
+    on = !on;
+    if (on) fill_solid(leds, NUM_LEDS, CRGB(currentR, currentG, currentB));
+    else    fill_solid(leds, NUM_LEDS, CRGB::Black);
+  }
+}
+
+void effectFire() {
+  for (int i = 0; i < NUM_LEDS; i++) {
+    uint8_t heat = random8(100, 255);
+    leds[i] = HeatColor(heat);
+  }
+  fadeToBlackBy(leds, NUM_LEDS, 60);
+}
+
+void effectMeteor() {
+  static int pos = 0;
+  fadeToBlackBy(leds, NUM_LEDS, 64);
+  int meteorSize = 4;
+  for (int j = 0; j < meteorSize; j++) {
+    int idx = (pos - j + NUM_LEDS) % NUM_LEDS;
+    leds[idx] = CRGB(currentR, currentG, currentB);
+  }
+  pos = (pos + 1) % NUM_LEDS;
+}
+
+void effectWave() {
+  for (int i = 0; i < NUM_LEDS; i++) {
+    uint8_t wave = sin8(i * 10 + hueOffset);
+    leds[i] = CRGB(
+      scale8(currentR, wave),
+      scale8(currentG, wave),
+      scale8(currentB, wave)
+    );
+  }
+  hueOffset += max(1, currentSpeed / 25);
+}
+
+void effectTwinkle() {
+  fadeToBlackBy(leds, NUM_LEDS, 20);
+  if (random8() < currentSpeed) {
+    leds[random16(NUM_LEDS)] = CRGB(currentR, currentG, currentB);
+  }
+}
+
+void effectChase() {
+  static int offset = 0;
+  for (int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = ((i + offset) % 3 == 0)
+      ? CRGB(currentR, currentG, currentB)
+      : CRGB::Black;
+  }
+  EVERY_N_MILLISECONDS(max(30, 255 - currentSpeed)) { offset++; }
+}
+
+typedef void (*EffectFunc)();
+EffectFunc effects[] = {
+  effectSolid, effectBreathing, effectRainbow, effectColorCycle,
+  effectStrobe, effectFire, effectMeteor, effectWave,
+  effectTwinkle, effectChase
+};
+
+BLECharacteristic* createChar(BLEService* svc, const char* uuid,
+  BLECharacteristicCallbacks* cb) {
+  BLECharacteristic* c = svc->createCharacteristic(uuid,
+    BLECharacteristic::PROPERTY_READ |
+    BLECharacteristic::PROPERTY_WRITE);
+  c->setCallbacks(cb);
+  c->setAccessPermissions(
+    ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
+  return c;
+}
+
+void setup() {
+  Serial.begin(115200);
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.setBrightness(currentBrightness);
+  FastLED.clear();
+  FastLED.show();
+
+  // BLE Init with encryption
+  BLEDevice::init("NIU-LED");
+  BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_MITM);
+  BLEDevice::setSecurityCallbacks(new SecurityCallback());
+
+  BLESecurity* security = new BLESecurity();
+  security->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
+  security->setCapability(ESP_IO_CAP_NONE);
+  security->setInitEncryptionKey(
+    ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+
+  BLEServer* server = BLEDevice::createServer();
+  server->setCallbacks(new ServerCallbacks());
+
+  BLEService* svc = server->createService(SERVICE_UUID);
+  createChar(svc, CHAR_COLOR_UUID,  new ColorCallback());
+  createChar(svc, CHAR_EFFECT_UUID, new EffectCallback());
+  createChar(svc, CHAR_BRIGHT_UUID, new BrightCallback());
+  createChar(svc, CHAR_SPEED_UUID,  new SpeedCallback());
+  createChar(svc, CHAR_POWER_UUID,  new PowerCallback());
+  createChar(svc, CHAR_ZONES_UUID,  new ZonesCallback());
+
+  svc->start();
+  BLEAdvertising* adv = BLEDevice::getAdvertising();
+  adv->addServiceUUID(SERVICE_UUID);
+  adv->setScanResponse(true);
+  BLEDevice::startAdvertising();
+  Serial.println("NIU-LED BLE ready (encrypted)");
+}
+
+void loop() {
+  if (currentPower && currentEffect < 10) {
+    effects[currentEffect]();
+  } else if (!currentPower) {
+    FastLED.clear();
+  }
+  FastLED.show();
+  delay(max(5, 30 - currentSpeed / 10));
+}`;

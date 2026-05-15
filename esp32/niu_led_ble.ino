@@ -303,7 +303,7 @@ void setup() {
   adv->addServiceUUID(SERVICE_UUID);
   adv->setScanResponse(true);
   adv->setMinPreferred(0x06);
-  adv->setMinPreferred(0x12);
+  adv->setMaxPreferred(0x12);
   BLEDevice::startAdvertising();
 
   Serial.println("NIU-LED BLE ready (encrypted + bonded pairing)");

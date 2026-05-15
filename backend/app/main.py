@@ -49,8 +49,10 @@ class TrackDetailRequest(BaseModel):
 
 class BatteryChartRequest(BaseModel):
     sn: str
+    bms_id: str = ""
     page: int = 1
-    page_size: int = 7
+    page_size: str = "A"
+    page_length: int = 1
 
 
 def _get_token(authorization: str | None) -> str:
@@ -169,7 +171,9 @@ async def get_battery_chart(
 ) -> dict[str, Any]:
     token = _get_token(authorization)
     try:
-        chart = await niu_api.get_battery_chart(token, req.sn, req.page, req.page_size)
+        chart = await niu_api.get_battery_chart(
+            token, req.sn, req.bms_id, req.page, req.page_size, req.page_length,
+        )
         return {"success": True, "data": chart}
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

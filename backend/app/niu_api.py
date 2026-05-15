@@ -134,12 +134,16 @@ async def get_battery_health(token: str, sn: str) -> dict[str, Any]:
     return await _get(token, f"/v3/motor_data/battery_info/health?sn={sn}")
 
 
-# ── Battery chart (kept on overallTally as fallback) ──
+# ── Battery chart (charge/discharge history) ──
 
 async def get_battery_chart(
-    token: str, sn: str, page: int = 1, page_size: int = 7,
+    token: str, sn: str, bms_id: str = "", page: int = 1,
+    page_size: str = "A", page_length: int = 1,
 ) -> dict[str, Any]:
-    return await _get(token, f"/v3/motor_data/battery_info?sn={sn}")
+    params = f"sn={sn}&page={page}&page_size={page_size}&pageLength={page_length}"
+    if bms_id:
+        params += f"&bmsId={bms_id}"
+    return await _get(token, f"/v3/motor_data/battery_chart/?{params}")
 
 
 # ── Vehicle detail (overall tally) ──

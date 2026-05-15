@@ -19,8 +19,11 @@ interface VehicleData {
   sn: string;
   name?: string;
   type?: string;
+  vehicleTypeId?: string;
   frameno?: string;
+  frameNo?: string;
   isConnected?: boolean;
+  isSelected?: boolean;
   [key: string]: unknown;
 }
 
@@ -91,7 +94,8 @@ export default function DashboardPage() {
   const compA = batteries?.compartmentA ?? {};
   const batteryPercent = compA?.batteryCharging ?? '--';
   const batteryTemp = compA?.temperature ?? '--';
-  const totalMileage = ((tally as Record<string, number>)?.totalMileage ?? 0) / 1000;
+  const rawMileage = (tally as Record<string, number>)?.totalMileage ?? 0;
+  const totalMileage = rawMileage > 10000 ? rawMileage / 1000 : rawMileage;
   const lastTrackSpeed = (motor as Record<string, number>)?.nowSpeed ?? 0;
 
   return (
@@ -100,7 +104,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
           <p className="text-text-muted text-sm mt-1">
-            {selectedVehicle?.name || selectedVehicle?.type || 'NIU Vehicle'}
+            {selectedVehicle?.name || selectedVehicle?.vehicleTypeId || selectedVehicle?.type || 'NIU Vehicle'}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -197,8 +201,8 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {[
               ['Serial Number', selectedVehicle?.sn],
-              ['Model', selectedVehicle?.type],
-              ['Frame No', selectedVehicle?.frameno],
+              ['Model', selectedVehicle?.vehicleTypeId || selectedVehicle?.type],
+              ['Frame No', selectedVehicle?.frameNo || selectedVehicle?.frameno],
             ].map(([label, val]) => (
               <div key={label as string} className="flex justify-between text-sm">
                 <span className="text-text-muted">{label}</span>
@@ -214,7 +218,7 @@ export default function DashboardPage() {
             {[
               ['Total Rides', (tally as Record<string, number>)?.totalRidingTimes ?? '--'],
               ['Savings (CO2)', `${((tally as Record<string, number>)?.totalCo2Saved ?? 0).toFixed(1)} kg`],
-              ['Days Since Purchase', (tally as Record<string, number>)?.totalDays ?? '--'],
+              ['Days Since Purchase', (tally as Record<string, number>)?.bindDaysCount ?? (tally as Record<string, number>)?.totalDays ?? '--'],
             ].map(([label, val]) => (
               <div key={label as string} className="flex justify-between text-sm">
                 <span className="text-text-muted">{label}</span>

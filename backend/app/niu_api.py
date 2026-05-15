@@ -50,61 +50,78 @@ async def create_session_token(
     return data["data"]
 
 
-def _api_headers(token: str) -> dict[str, str]:
+def _api_headers(token: str, form: bool = False) -> dict[str, str]:
+    ct = "application/x-www-form-urlencoded" if form else "application/json"
     return {
         "token": token,
         "User-Agent": USER_AGENT,
         "Accept-Language": ACCEPT_LANGUAGE,
-        "Content-Type": "application/json",
+        "Content-Type": ct,
     }
 
 
 async def get_vehicles(token: str) -> list[dict[str, Any]]:
-    url = f"{APP_API_BASE_URL}/v5/scooter/list"
+    url = f"{APP_API_BASE_URL}/motoinfo/list"
     async with httpx.AsyncClient() as client:
-        resp = await client.post(url, headers=_api_headers(token), json={}, timeout=30)
+        resp = await client.post(
+            url, headers=_api_headers(token, form=True), data={}, timeout=30,
+        )
         resp.raise_for_status()
         data = resp.json()
-    return data.get("data", {}).get("items", [])
+    return data.get("data", [])
 
 
 async def get_vehicle_detail(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/v5/scooter/detail"
+    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
     async with httpx.AsyncClient() as client:
-        resp = await client.post(url, headers=_api_headers(token), json={"sn": sn}, timeout=30)
+        resp = await client.post(
+            url, headers=_api_headers(token, form=True),
+            data={"sn": sn}, timeout=30,
+        )
         resp.raise_for_status()
         return resp.json().get("data", {})
 
 
 async def get_vehicle_pos(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/v5/scooter/position/{sn}"
+    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
     async with httpx.AsyncClient() as client:
-        resp = await client.get(url, headers=_api_headers(token), timeout=30)
+        resp = await client.post(
+            url, headers=_api_headers(token, form=True),
+            data={"sn": sn}, timeout=30,
+        )
         resp.raise_for_status()
         return resp.json().get("data", {})
 
 
 async def get_overall_tally(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/v5/scooter/overall_tally"
+    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
     async with httpx.AsyncClient() as client:
-        resp = await client.post(url, headers=_api_headers(token), json={"sn": sn}, timeout=30)
+        resp = await client.post(
+            url, headers=_api_headers(token, form=True),
+            data={"sn": sn}, timeout=30,
+        )
         resp.raise_for_status()
         return resp.json().get("data", {})
 
 
 async def get_battery_info(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/v5/scooter/battery/info"
-    payload = {"sn": sn}
+    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
     async with httpx.AsyncClient() as client:
-        resp = await client.post(url, headers=_api_headers(token), json=payload, timeout=30)
+        resp = await client.post(
+            url, headers=_api_headers(token, form=True),
+            data={"sn": sn}, timeout=30,
+        )
         resp.raise_for_status()
         return resp.json().get("data", {})
 
 
 async def get_battery_health(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/v5/scooter/battery/health"
+    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
     async with httpx.AsyncClient() as client:
-        resp = await client.post(url, headers=_api_headers(token), json={"sn": sn}, timeout=30)
+        resp = await client.post(
+            url, headers=_api_headers(token, form=True),
+            data={"sn": sn}, timeout=30,
+        )
         resp.raise_for_status()
         return resp.json().get("data", {})
 
@@ -112,18 +129,23 @@ async def get_battery_health(token: str, sn: str) -> dict[str, Any]:
 async def get_battery_chart(
     token: str, sn: str, page: int = 1, page_size: int = 7,
 ) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/v5/scooter/battery/chart"
-    payload = {"sn": sn, "page": page, "pageSize": page_size, "pageLength": page_size}
+    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
     async with httpx.AsyncClient() as client:
-        resp = await client.post(url, headers=_api_headers(token), json=payload, timeout=30)
+        resp = await client.post(
+            url, headers=_api_headers(token, form=True),
+            data={"sn": sn}, timeout=30,
+        )
         resp.raise_for_status()
         return resp.json().get("data", {})
 
 
 async def get_motor_info(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/v5/scooter/motor_data/index_info"
+    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
     async with httpx.AsyncClient() as client:
-        resp = await client.post(url, headers=_api_headers(token), json={"sn": sn}, timeout=30)
+        resp = await client.post(
+            url, headers=_api_headers(token, form=True),
+            data={"sn": sn}, timeout=30,
+        )
         resp.raise_for_status()
         return resp.json().get("data", {})
 
@@ -149,16 +171,22 @@ async def get_track_detail(token: str, sn: str, track_id: str) -> dict[str, Any]
 
 
 async def get_firmware_version(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/v5/scooter/firmware/version"
+    url = f"{APP_API_BASE_URL}/motorota/getupdateinfo"
     async with httpx.AsyncClient() as client:
-        resp = await client.post(url, headers=_api_headers(token), json={"sn": sn}, timeout=30)
+        resp = await client.post(
+            url, headers=_api_headers(token, form=True),
+            data={"sn": sn}, timeout=30,
+        )
         resp.raise_for_status()
         return resp.json().get("data", {})
 
 
 async def get_update_info(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/v5/scooter/firmware/update"
+    url = f"{APP_API_BASE_URL}/motorota/getupdateinfo"
     async with httpx.AsyncClient() as client:
-        resp = await client.post(url, headers=_api_headers(token), json={"sn": sn}, timeout=30)
+        resp = await client.post(
+            url, headers=_api_headers(token, form=True),
+            data={"sn": sn}, timeout=30,
+        )
         resp.raise_for_status()
         return resp.json().get("data", {})

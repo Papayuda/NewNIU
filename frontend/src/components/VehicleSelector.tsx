@@ -4,7 +4,9 @@ interface Vehicle {
   sn: string;
   name?: string;
   type?: string;
+  vehicleTypeId?: string;
   frameno?: string;
+  frameNo?: string;
 }
 
 interface VehicleSelectorProps {

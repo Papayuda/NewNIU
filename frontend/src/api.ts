@@ -32,7 +32,7 @@ async function apiRequest<T>(
     ...options,
     headers,
   });
-  if (resp.status === 401) {
+  if (resp.status === 401 && !endpoint.startsWith('/auth/')) {
     clearToken();
     window.location.href = '/login';
     throw new Error('Session expired');

@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/NewNIU.iml" filepath="$PROJECT_DIR$/.idea/NewNIU.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/niu-controller-backend.iml" filepath="$PROJECT_DIR$/.idea/niu-controller-backend.iml" />
     </modules>
   </component>
 </project>

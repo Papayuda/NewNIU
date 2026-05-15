@@ -13,7 +13,7 @@ from app import niu_api
 app = FastAPI(
     title="NIU Controller API",
     description="Backend proxy for NIU Cloud API — powers the NIU Controller dashboard",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -44,6 +44,7 @@ class TracksRequest(BaseModel):
 class TrackDetailRequest(BaseModel):
     sn: str
     track_id: str
+    date: str = ""
 
 
 class BatteryChartRequest(BaseModel):
@@ -60,10 +61,14 @@ def _get_token(authorization: str | None) -> str:
     return authorization
 
 
+# ── Health ──
+
 @app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
 
+
+# ── Auth ──
 
 @app.post("/api/auth/login")
 async def login(req: LoginRequest) -> dict[str, Any]:
@@ -77,6 +82,8 @@ async def login(req: LoginRequest) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 
+
+# ── Vehicles ──
 
 @app.get("/api/vehicles")
 async def get_vehicles(authorization: str | None = Header(default=None)) -> dict[str, Any]:
@@ -127,6 +134,8 @@ async def get_overall_tally(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+# ── Battery ──
+
 @app.post("/api/vehicle/battery/info")
 async def get_battery_info(
     req: SNRequest,
@@ -166,6 +175,8 @@ async def get_battery_chart(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+# ── Motor ──
+
 @app.post("/api/vehicle/motor")
 async def get_motor_info(
     req: SNRequest,
@@ -178,6 +189,8 @@ async def get_motor_info(
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
+
+# ── Tracks ──
 
 @app.post("/api/vehicle/tracks")
 async def get_tracks(
@@ -199,11 +212,13 @@ async def get_track_detail(
 ) -> dict[str, Any]:
     token = _get_token(authorization)
     try:
-        detail = await niu_api.get_track_detail(token, req.sn, req.track_id)
+        detail = await niu_api.get_track_detail(token, req.sn, req.track_id, req.date)
         return {"success": True, "data": detail}
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
+
+# ── Firmware ──
 
 @app.post("/api/vehicle/firmware")
 async def get_firmware_version(
@@ -229,3 +244,4 @@ async def get_update_info(
         return {"success": True, "data": update}
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+

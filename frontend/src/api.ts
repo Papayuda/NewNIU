@@ -132,16 +132,24 @@ export async function getTracks(sn: string, page = 1, pageSize = 10): Promise<Re
   return resp.data || {};
 }
 
-export async function getTrackDetail(sn: string, trackId: string): Promise<Record<string, unknown>> {
+export async function getTrackDetail(sn: string, trackId: string, date = ''): Promise<Record<string, unknown>> {
   const resp = await apiRequest<{ data: Record<string, unknown> }>('/vehicle/track/detail', {
     method: 'POST',
-    body: JSON.stringify({ sn, track_id: trackId }),
+    body: JSON.stringify({ sn, track_id: trackId, date }),
   });
   return resp.data || {};
 }
 
 export async function getFirmwareVersion(sn: string): Promise<Record<string, unknown>> {
   const resp = await apiRequest<{ data: Record<string, unknown> }>('/vehicle/firmware', {
+    method: 'POST',
+    body: JSON.stringify({ sn }),
+  });
+  return resp.data || {};
+}
+
+export async function getUpdateInfo(sn: string): Promise<Record<string, unknown>> {
+  const resp = await apiRequest<{ data: Record<string, unknown> }>('/vehicle/update-info', {
     method: 'POST',
     body: JSON.stringify({ sn }),
   });

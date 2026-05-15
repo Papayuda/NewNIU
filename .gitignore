@@ -7,3 +7,20 @@ __pycache__/
 .venv/
 .ruff_cache/
 .mypy_cache/
+
+# Capacitor native build artifacts
+frontend/ios/App/Pods/
+frontend/android/.gradle/
+frontend/android/app/build/
+frontend/android/build/
+*.xcworkspace
+*.xcuserdata/
+frontend/ios/App/App/public/
+frontend/android/app/src/main/assets/public/
+
+# Test plans
+test-plan*.md
+test-report*.md
+
+# IDE
+.idea/

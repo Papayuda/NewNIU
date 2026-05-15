@@ -1,5 +1,10 @@
 /**
- * BLE LED Controller — Web Bluetooth API service for FastLED ESP32 communication.
+ * BLE LED Controller — Cross-platform BLE service for FastLED ESP32 communication.
+ *
+ * Uses @capacitor-community/bluetooth-le which supports:
+ *   - iOS (CoreBluetooth)
+ *   - Android (native BLE)
+ *   - Web (Web Bluetooth API fallback for Chrome/Edge)
  *
  * GATT Service UUID: 0000ff00-0000-1000-8000-00805f9b34fb
  * Characteristics:
@@ -11,13 +16,15 @@
  *   ZONES      (ff06) — bitmask 1 byte (bit0=underglow, bit1=dash, bit2=rear, bit3=front, bit4=wheel)
  */
 
-const SERVICE_UUID = 0xff00;
-const CHAR_COLOR = 0xff01;
-const CHAR_EFFECT = 0xff02;
-const CHAR_BRIGHTNESS = 0xff03;
-const CHAR_SPEED = 0xff04;
-const CHAR_POWER = 0xff05;
-const CHAR_ZONES = 0xff06;
+import { BleClient, numberToUUID } from '@capacitor-community/bluetooth-le';
+
+const SERVICE_UUID = numberToUUID(0xff00);
+const CHAR_COLOR = numberToUUID(0xff01);
+const CHAR_EFFECT = numberToUUID(0xff02);
+const CHAR_BRIGHTNESS = numberToUUID(0xff03);
+const CHAR_SPEED = numberToUUID(0xff04);
+const CHAR_POWER = numberToUUID(0xff05);
+const CHAR_ZONES = numberToUUID(0xff06);
 
 export const EFFECTS = [
   { id: 0, name: 'Solid', desc: 'Static single color' },
@@ -53,19 +60,20 @@ type StateListener = (state: Partial<LEDState>) => void;
 type ConnectionListener = (connected: boolean, name?: string) => void;
 
 class BLELedController {
-  private device: BluetoothDevice | null = null;
-  private server: BluetoothRemoteGATTServer | null = null;
-  private service: BluetoothRemoteGATTService | null = null;
-  private chars: Map<number, BluetoothRemoteGATTCharacteristic> = new Map();
+  private deviceId: string | null = null;
+  private _deviceName = '';
+  private _connected = false;
+  private initialized = false;
+  private availableChars = new Set<string>();
   private stateListeners: StateListener[] = [];
   private connectionListeners: ConnectionListener[] = [];
 
   get connected(): boolean {
-    return !!this.server?.connected;
+    return this._connected;
   }
 
   get deviceName(): string {
-    return this.device?.name ?? '';
+    return this._deviceName;
   }
 
   onStateChange(fn: StateListener): () => void {
@@ -87,32 +95,33 @@ class BLELedController {
   }
 
   private notifyConnection(connected: boolean) {
-    this.connectionListeners.forEach((fn) => fn(connected, this.deviceName));
+    this._connected = connected;
+    this.connectionListeners.forEach((fn) => fn(connected, this._deviceName));
   }
 
   async connect(): Promise<void> {
-    if (!navigator.bluetooth) {
-      throw new Error('Web Bluetooth is not supported in this browser. Use Chrome or Edge.');
+    if (!this.initialized) {
+      await BleClient.initialize({ androidNeverForLocation: true });
+      this.initialized = true;
     }
-    this.device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [SERVICE_UUID] }],
+
+    const device = await BleClient.requestDevice({
+      services: [SERVICE_UUID],
       optionalServices: [SERVICE_UUID],
     });
 
-    this.device.addEventListener('gattserverdisconnected', () => {
+    this.deviceId = device.deviceId;
+    this._deviceName = device.name ?? 'NIU LED';
+
+    await BleClient.connect(this.deviceId, () => {
       this.notifyConnection(false);
     });
 
-    this.server = await this.device.gatt!.connect();
-    this.service = await this.server.getPrimaryService(SERVICE_UUID);
-
-    const charUuids = [CHAR_COLOR, CHAR_EFFECT, CHAR_BRIGHTNESS, CHAR_SPEED, CHAR_POWER, CHAR_ZONES];
-    for (const uuid of charUuids) {
-      try {
-        const char = await this.service.getCharacteristic(uuid);
-        this.chars.set(uuid, char);
-      } catch {
-        // characteristic not available on this device
+    const services = await BleClient.getServices(this.deviceId);
+    const ledService = services.find((s) => s.uuid === SERVICE_UUID);
+    if (ledService) {
+      for (const c of ledService.characteristics) {
+        this.availableChars.add(c.uuid);
       }
     }
 
@@ -120,13 +129,12 @@ class BLELedController {
   }
 
   async disconnect(): Promise<void> {
-    if (this.server?.connected) {
-      this.server.disconnect();
+    if (this.deviceId && this._connected) {
+      await BleClient.disconnect(this.deviceId);
     }
-    this.device = null;
-    this.server = null;
-    this.service = null;
-    this.chars.clear();
+    this.deviceId = null;
+    this._deviceName = '';
+    this.availableChars.clear();
     this.notifyConnection(false);
   }
 
@@ -140,42 +148,38 @@ class BLELedController {
       zoneMask: 0x01,
     };
 
-    const colorChar = this.chars.get(CHAR_COLOR);
-    if (colorChar) {
-      const val = await colorChar.readValue();
+    if (!this.deviceId) return state;
+
+    if (this.availableChars.has(CHAR_COLOR)) {
+      const val = await BleClient.read(this.deviceId, SERVICE_UUID, CHAR_COLOR);
       const r = val.getUint8(0);
       const g = val.getUint8(1);
       const b = val.getUint8(2);
       state.color = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     }
 
-    const effectChar = this.chars.get(CHAR_EFFECT);
-    if (effectChar) {
-      const val = await effectChar.readValue();
+    if (this.availableChars.has(CHAR_EFFECT)) {
+      const val = await BleClient.read(this.deviceId, SERVICE_UUID, CHAR_EFFECT);
       state.effectId = val.getUint8(0);
     }
 
-    const brightChar = this.chars.get(CHAR_BRIGHTNESS);
-    if (brightChar) {
-      const val = await brightChar.readValue();
+    if (this.availableChars.has(CHAR_BRIGHTNESS)) {
+      const val = await BleClient.read(this.deviceId, SERVICE_UUID, CHAR_BRIGHTNESS);
       state.brightness = val.getUint8(0);
     }
 
-    const speedChar = this.chars.get(CHAR_SPEED);
-    if (speedChar) {
-      const val = await speedChar.readValue();
+    if (this.availableChars.has(CHAR_SPEED)) {
+      const val = await BleClient.read(this.deviceId, SERVICE_UUID, CHAR_SPEED);
       state.speed = val.getUint8(0);
     }
 
-    const powerChar = this.chars.get(CHAR_POWER);
-    if (powerChar) {
-      const val = await powerChar.readValue();
+    if (this.availableChars.has(CHAR_POWER)) {
+      const val = await BleClient.read(this.deviceId, SERVICE_UUID, CHAR_POWER);
       state.power = val.getUint8(0) === 1;
     }
 
-    const zoneChar = this.chars.get(CHAR_ZONES);
-    if (zoneChar) {
-      const val = await zoneChar.readValue();
+    if (this.availableChars.has(CHAR_ZONES)) {
+      const val = await BleClient.read(this.deviceId, SERVICE_UUID, CHAR_ZONES);
       state.zoneMask = val.getUint8(0);
     }
 
@@ -183,47 +187,55 @@ class BLELedController {
   }
 
   async setColor(hex: string): Promise<void> {
-    const char = this.chars.get(CHAR_COLOR);
-    if (!char) return;
+    if (!this.deviceId || !this.availableChars.has(CHAR_COLOR)) return;
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
-    await char.writeValue(new Uint8Array([r, g, b]));
+    const dv = new DataView(new ArrayBuffer(3));
+    dv.setUint8(0, r);
+    dv.setUint8(1, g);
+    dv.setUint8(2, b);
+    await BleClient.write(this.deviceId, SERVICE_UUID, CHAR_COLOR, dv);
     this.notifyState({ color: hex });
   }
 
   async setEffect(effectId: number): Promise<void> {
-    const char = this.chars.get(CHAR_EFFECT);
-    if (!char) return;
-    await char.writeValue(new Uint8Array([effectId]));
+    if (!this.deviceId || !this.availableChars.has(CHAR_EFFECT)) return;
+    const dv = new DataView(new ArrayBuffer(1));
+    dv.setUint8(0, effectId);
+    await BleClient.write(this.deviceId, SERVICE_UUID, CHAR_EFFECT, dv);
     this.notifyState({ effectId });
   }
 
   async setBrightness(brightness: number): Promise<void> {
-    const char = this.chars.get(CHAR_BRIGHTNESS);
-    if (!char) return;
-    await char.writeValue(new Uint8Array([Math.max(0, Math.min(255, brightness))]));
+    if (!this.deviceId || !this.availableChars.has(CHAR_BRIGHTNESS)) return;
+    const dv = new DataView(new ArrayBuffer(1));
+    dv.setUint8(0, Math.max(0, Math.min(255, brightness)));
+    await BleClient.write(this.deviceId, SERVICE_UUID, CHAR_BRIGHTNESS, dv);
     this.notifyState({ brightness });
   }
 
   async setSpeed(speed: number): Promise<void> {
-    const char = this.chars.get(CHAR_SPEED);
-    if (!char) return;
-    await char.writeValue(new Uint8Array([Math.max(0, Math.min(255, speed))]));
+    if (!this.deviceId || !this.availableChars.has(CHAR_SPEED)) return;
+    const dv = new DataView(new ArrayBuffer(1));
+    dv.setUint8(0, Math.max(0, Math.min(255, speed)));
+    await BleClient.write(this.deviceId, SERVICE_UUID, CHAR_SPEED, dv);
     this.notifyState({ speed });
   }
 
   async setPower(on: boolean): Promise<void> {
-    const char = this.chars.get(CHAR_POWER);
-    if (!char) return;
-    await char.writeValue(new Uint8Array([on ? 1 : 0]));
+    if (!this.deviceId || !this.availableChars.has(CHAR_POWER)) return;
+    const dv = new DataView(new ArrayBuffer(1));
+    dv.setUint8(0, on ? 1 : 0);
+    await BleClient.write(this.deviceId, SERVICE_UUID, CHAR_POWER, dv);
     this.notifyState({ power: on });
   }
 
   async setZones(mask: number): Promise<void> {
-    const char = this.chars.get(CHAR_ZONES);
-    if (!char) return;
-    await char.writeValue(new Uint8Array([mask & 0xff]));
+    if (!this.deviceId || !this.availableChars.has(CHAR_ZONES)) return;
+    const dv = new DataView(new ArrayBuffer(1));
+    dv.setUint8(0, mask & 0xff);
+    await BleClient.write(this.deviceId, SERVICE_UUID, CHAR_ZONES, dv);
     this.notifyState({ zoneMask: mask });
   }
 }

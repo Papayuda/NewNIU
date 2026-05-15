@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { MapPin, RefreshCw, Navigation } from 'lucide-react';
+import { useEffect, useState, useRef, useCallback } from 'react'; // useRef needed for map/marker
+import { MapPin, RefreshCw, Navigation, Wifi, WifiOff, Clock } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -7,7 +7,7 @@ import { getVehicles, getVehiclePosition } from '../api';
 
 export default function LocationPage() {
   const [sn, setSn] = useState('');
-  const [position, setPosition] = useState<Record<string, unknown>>({});
+  const [data, setData] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -21,25 +21,33 @@ export default function LocationPage() {
     })();
   }, []);
 
-  const loadData = useCallback(async () => {
-    if (!sn) return;
+  const loadData = useCallback(async (serial: string) => {
+    if (!serial) return;
     try {
-      const pos = await getVehiclePosition(sn);
-      setPosition(pos);
+      const pos = await getVehiclePosition(serial);
+      setData(pos);
     } catch {
       /* handled */
     }
-  }, [sn]);
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching
+    if (sn) void loadData(sn);
+  }, [sn, loadData]);
+
+  const posObj = (data as Record<string, Record<string, number>>)?.postion ?? {};
+  const lat = posObj.lat ?? 0;
+  const lng = posObj.lng ?? 0;
+  const isConnected = (data as Record<string, boolean>).isConnected ?? false;
+  const gpsTimestamp = (data as Record<string, number>).gpsTimestamp ?? 0;
+  const gpsAccuracy = (data as Record<string, number>).gps ?? null;
+  const lastSeen = gpsTimestamp > 0
+    ? new Date(gpsTimestamp).toLocaleString()
+    : '--';
 
   useEffect(() => {
     if (!mapRef.current) return;
-
-    const lat = (position as Record<string, number>).lat ?? 0;
-    const lng = (position as Record<string, number>).lng ?? 0;
 
     if (!mapInstanceRef.current) {
       const map = L.map(mapRef.current, {
@@ -79,7 +87,7 @@ export default function LocationPage() {
     }
 
     return () => {};
-  }, [position]);
+  }, [data, lat, lng]);
 
   useEffect(() => {
     return () => {
@@ -92,9 +100,6 @@ export default function LocationPage() {
 
   if (loading) return <LoadingSpinner message="Loading location..." />;
 
-  const lat = (position as Record<string, number>).lat ?? 0;
-  const lng = (position as Record<string, number>).lng ?? 0;
-
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
@@ -103,14 +108,27 @@ export default function LocationPage() {
           <p className="text-text-muted text-sm mt-1">Vehicle GPS tracking</p>
         </div>
         <button
-          onClick={loadData}
+          onClick={() => void loadData(sn)}
           className="p-2.5 rounded-xl bg-dark-700 border border-dark-500 text-text-secondary hover:text-niu-cyan hover:border-niu-cyan/50 transition-all"
         >
           <RefreshCw className="w-5 h-5" />
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-dark-800 rounded-2xl p-5 border border-dark-600 flex items-center gap-4">
+          {isConnected ? (
+            <Wifi className="w-8 h-8 text-emerald-400" />
+          ) : (
+            <WifiOff className="w-8 h-8 text-text-muted" />
+          )}
+          <div>
+            <p className="text-text-muted text-xs">Status</p>
+            <p className={`font-bold text-lg ${isConnected ? 'text-emerald-400' : 'text-text-muted'}`}>
+              {isConnected ? 'Online' : 'Offline'}
+            </p>
+          </div>
+        </div>
         <div className="bg-dark-800 rounded-2xl p-5 border border-dark-600 flex items-center gap-4">
           <MapPin className="w-8 h-8 text-niu-red" />
           <div>
@@ -126,15 +144,20 @@ export default function LocationPage() {
           </div>
         </div>
         <div className="bg-dark-800 rounded-2xl p-5 border border-dark-600 flex items-center gap-4">
-          <MapPin className="w-8 h-8 text-violet-400" />
+          <Clock className="w-8 h-8 text-violet-400" />
           <div>
-            <p className="text-text-muted text-xs">GPS Accuracy</p>
-            <p className="text-text-primary font-bold text-lg">
-              {(position as Record<string, number>).gps ?? '--'}
-            </p>
+            <p className="text-text-muted text-xs">Last Seen</p>
+            <p className="text-text-primary font-bold text-sm">{lastSeen}</p>
           </div>
         </div>
       </div>
+
+      {!lat && !lng && (
+        <div className="mb-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm">
+          No GPS position available. BLE kick scooters (KQi series) report position only when connected via Bluetooth to the NIU app.
+          {gpsAccuracy !== null && ` GPS accuracy: ${gpsAccuracy}`}
+        </div>
+      )}
 
       <div
         ref={mapRef}

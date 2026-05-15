@@ -6,8 +6,10 @@ import {
   Thermometer,
   Zap,
   Timer,
-  MapPin,
   RefreshCw,
+  Lock,
+  Unlock,
+  Navigation,
 } from 'lucide-react';
 import MetricTile from '../components/MetricTile';
 import VehicleSelector from '../components/VehicleSelector';
@@ -52,14 +54,14 @@ export default function DashboardPage() {
     })();
   }, []);
 
-  const loadVehicleData = useCallback(async (sn: string) => {
-    if (!sn) return;
+  const loadVehicleData = useCallback(async (serial: string) => {
+    if (!serial) return;
     setRefreshing(true);
     try {
       const [t, b, m] = await Promise.all([
-        getOverallTally(sn),
-        getBatteryInfo(sn),
-        getMotorInfo(sn),
+        getOverallTally(serial),
+        getBatteryInfo(serial),
+        getMotorInfo(serial),
       ]);
       setTally(t);
       setBattery(b);
@@ -72,7 +74,8 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedSN) loadVehicleData(selectedSN);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching
+    if (selectedSN) void loadVehicleData(selectedSN);
   }, [selectedSN, loadVehicleData]);
 
   if (loading) return <LoadingSpinner message="Loading vehicles..." />;
@@ -97,6 +100,9 @@ export default function DashboardPage() {
   const rawMileage = (tally as Record<string, number>)?.totalMileage ?? 0;
   const totalMileage = rawMileage > 10000 ? rawMileage / 1000 : rawMileage;
   const lastTrackSpeed = (motor as Record<string, number>)?.nowSpeed ?? 0;
+  const isConnected = (motor as Record<string, boolean>)?.isConnected ?? false;
+  const isLocked = (motor as Record<string, number>)?.lockStatus === 1;
+  const estimatedRange = (motor as Record<string, number>)?.estimatedMileage ?? 0;
 
   return (
     <div>
@@ -115,7 +121,7 @@ export default function DashboardPage() {
             onSelect={setSelectedSN}
           />
           <button
-            onClick={() => loadVehicleData(selectedSN)}
+            onClick={() => void loadVehicleData(selectedSN)}
             disabled={refreshing}
             className="p-2.5 rounded-xl bg-dark-700 border border-dark-500 text-text-secondary hover:text-niu-cyan hover:border-niu-cyan/50 transition-all disabled:opacity-50"
           >
@@ -158,9 +164,9 @@ export default function DashboardPage() {
           subtitle="Battery temperature"
         />
         <MetricTile
-          icon={<Zap className="w-6 h-6" />}
+          icon={<Navigation className="w-6 h-6" />}
           label="Estimated Range"
-          value={(tally as Record<string, number>)?.estimatedMileage ?? '--'}
+          value={estimatedRange || '--'}
           unit="km"
           color="text-niu-red"
           subtitle="Remaining range"
@@ -174,12 +180,11 @@ export default function DashboardPage() {
           subtitle="Total riding time"
         />
         <MetricTile
-          icon={<MapPin className="w-6 h-6" />}
-          label="Last Position"
-          value={(motor as Record<string, number>)?.centreCtrlBattery ?? '--'}
-          unit="V"
-          color="text-rose-400"
-          subtitle="Controller voltage"
+          icon={isLocked ? <Lock className="w-6 h-6" /> : <Unlock className="w-6 h-6" />}
+          label="Lock Status"
+          value={isLocked ? 'Locked' : 'Unlocked'}
+          color={isLocked ? 'text-emerald-400' : 'text-amber-400'}
+          subtitle={isConnected ? 'Vehicle online' : 'Vehicle offline'}
         />
         <MetricTile
           icon={<Gauge className="w-6 h-6" />}

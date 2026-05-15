@@ -8,6 +8,7 @@ import MotorPage from './pages/MotorPage';
 import LocationPage from './pages/LocationPage';
 import TripsPage from './pages/TripsPage';
 import FirmwarePage from './pages/FirmwarePage';
+import LightingPage from './pages/LightingPage';
 import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -90,6 +91,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <AppLayout>
               <FirmwarePage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/lighting"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <LightingPage />
             </AppLayout>
           </ProtectedRoute>
         }

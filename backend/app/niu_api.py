@@ -60,6 +60,39 @@ def _api_headers(token: str, form: bool = False) -> dict[str, str]:
     }
 
 
+async def _get(token: str, path: str) -> dict[str, Any]:
+    """GET request to app API (JSON, token header)."""
+    url = f"{APP_API_BASE_URL}{path}"
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url, headers=_api_headers(token), timeout=30)
+        resp.raise_for_status()
+        return resp.json().get("data", {})
+
+
+async def _post_form(token: str, path: str, data: dict[str, str]) -> dict[str, Any]:
+    """POST form-encoded request to app API."""
+    url = f"{APP_API_BASE_URL}{path}"
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            url, headers=_api_headers(token, form=True), data=data, timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json().get("data", {})
+
+
+async def _post_json(token: str, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """POST JSON request to app API."""
+    url = f"{APP_API_BASE_URL}{path}"
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            url, headers=_api_headers(token), json=payload, timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json().get("data", {})
+
+
+# ── Vehicle list ──
+
 async def get_vehicles(token: str) -> list[dict[str, Any]]:
     url = f"{APP_API_BASE_URL}/motoinfo/list"
     async with httpx.AsyncClient() as client:
@@ -71,122 +104,79 @@ async def get_vehicles(token: str) -> list[dict[str, Any]]:
     return data.get("data", [])
 
 
-async def get_vehicle_detail(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url, headers=_api_headers(token, form=True),
-            data={"sn": sn}, timeout=30,
-        )
-        resp.raise_for_status()
-        return resp.json().get("data", {})
-
-
-async def get_vehicle_pos(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url, headers=_api_headers(token, form=True),
-            data={"sn": sn}, timeout=30,
-        )
-        resp.raise_for_status()
-        return resp.json().get("data", {})
-
+# ── Overall tally (mileage, days) ──
 
 async def get_overall_tally(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url, headers=_api_headers(token, form=True),
-            data={"sn": sn}, timeout=30,
-        )
-        resp.raise_for_status()
-        return resp.json().get("data", {})
+    return await _post_form(token, "/motoinfo/overallTally", {"sn": sn})
 
 
-async def get_battery_info(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url, headers=_api_headers(token, form=True),
-            data={"sn": sn}, timeout=30,
-        )
-        resp.raise_for_status()
-        return resp.json().get("data", {})
-
-
-async def get_battery_health(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url, headers=_api_headers(token, form=True),
-            data={"sn": sn}, timeout=30,
-        )
-        resp.raise_for_status()
-        return resp.json().get("data", {})
-
-
-async def get_battery_chart(
-    token: str, sn: str, page: int = 1, page_size: int = 7,
-) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url, headers=_api_headers(token, form=True),
-            data={"sn": sn}, timeout=30,
-        )
-        resp.raise_for_status()
-        return resp.json().get("data", {})
-
+# ── Motor / vehicle status (real-time: connected, speed, position, lock) ──
 
 async def get_motor_info(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/motoinfo/overallTally"
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url, headers=_api_headers(token, form=True),
-            data={"sn": sn}, timeout=30,
-        )
-        resp.raise_for_status()
-        return resp.json().get("data", {})
+    return await _get(token, f"/v3/motor_data/index_info?sn={sn}")
 
+
+# ── Vehicle position (extracted from motor info) ──
+
+async def get_vehicle_pos(token: str, sn: str) -> dict[str, Any]:
+    return await _get(token, f"/v3/motor_data/index_info?sn={sn}")
+
+
+# ── Battery info (SOC, voltage, temp, cells) ──
+
+async def get_battery_info(token: str, sn: str) -> dict[str, Any]:
+    return await _get(token, f"/v3/motor_data/battery_info?sn={sn}")
+
+
+# ── Battery health (grade, charge count, faults) ──
+
+async def get_battery_health(token: str, sn: str) -> dict[str, Any]:
+    return await _get(token, f"/v3/motor_data/battery_info/health?sn={sn}")
+
+
+# ── Battery chart (charge/discharge history) ──
+
+async def get_battery_chart(
+    token: str, sn: str, bms_id: str = "", page: int = 1,
+    page_size: str = "A", page_length: int = 1,
+) -> dict[str, Any]:
+    params = f"sn={sn}&page={page}&page_size={page_size}&pageLength={page_length}"
+    if bms_id:
+        params += f"&bmsId={bms_id}"
+    return await _get(token, f"/v3/motor_data/battery_chart/?{params}")
+
+
+# ── Vehicle detail (overall tally) ──
+
+async def get_vehicle_detail(token: str, sn: str) -> dict[str, Any]:
+    return await _post_form(token, "/motoinfo/overallTally", {"sn": sn})
+
+
+# ── Tracks ──
 
 async def get_tracks(
-    token: str, sn: str, page: int = 1, page_size: int = 10
+    token: str, sn: str, page: int = 1, page_size: int = 10,
 ) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/v5/track/list/v2"
-    payload = {"sn": sn, "index": str(page), "pageSize": page_size, "pageLength": page_size}
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(url, headers=_api_headers(token), json=payload, timeout=30)
-        resp.raise_for_status()
-        return resp.json().get("data", {})
+    return await _post_form(
+        token, "/v3/motor_data/track",
+        {"sn": sn, "index": str(page - 1), "pagesize": str(page_size)},
+    )
 
 
-async def get_track_detail(token: str, sn: str, track_id: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/v5/track/detail"
-    payload = {"sn": sn, "trackId": track_id}
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(url, headers=_api_headers(token), json=payload, timeout=30)
-        resp.raise_for_status()
-        return resp.json().get("data", {})
+async def get_track_detail(
+    token: str, sn: str, track_id: str, date: str = "",
+) -> dict[str, Any]:
+    return await _post_form(
+        token, "/motoinfo/track/detail",
+        {"sn": sn, "trackId": track_id, "date": date},
+    )
 
+
+# ── Firmware ──
 
 async def get_firmware_version(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/motorota/getupdateinfo"
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url, headers=_api_headers(token, form=True),
-            data={"sn": sn}, timeout=30,
-        )
-        resp.raise_for_status()
-        return resp.json().get("data", {})
+    return await _post_form(token, "/motorota/getfirmwareversion", {"sn": sn})
 
 
 async def get_update_info(token: str, sn: str) -> dict[str, Any]:
-    url = f"{APP_API_BASE_URL}/motorota/getupdateinfo"
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url, headers=_api_headers(token, form=True),
-            data={"sn": sn}, timeout=30,
-        )
-        resp.raise_for_status()
-        return resp.json().get("data", {})
+    return await _post_form(token, "/motorota/getupdateinfo", {"sn": sn})

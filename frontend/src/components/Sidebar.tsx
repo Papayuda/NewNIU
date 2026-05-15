@@ -8,6 +8,7 @@ import {
   Cpu,
   LogOut,
   Zap,
+  Lightbulb,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -18,6 +19,7 @@ const navItems = [
   { to: '/location', icon: MapPin, label: 'Location' },
   { to: '/trips', icon: Route, label: 'Trips' },
   { to: '/firmware', icon: Cpu, label: 'Firmware' },
+  { to: '/lighting', icon: Lightbulb, label: 'Lighting' },
 ];
 
 export default function Sidebar() {

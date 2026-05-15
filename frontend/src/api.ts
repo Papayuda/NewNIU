@@ -108,7 +108,7 @@ export async function getBatteryHealth(sn: string): Promise<Record<string, unkno
   return resp.data || {};
 }
 
-export async function getBatteryChart(sn: string, page = 1, pageSize = 7): Promise<Record<string, unknown>> {
+export async function getBatteryChart(sn: string, page = 1, pageSize = 'A'): Promise<Record<string, unknown>> {
   const resp = await apiRequest<{ data: Record<string, unknown> }>('/vehicle/battery/chart', {
     method: 'POST',
     body: JSON.stringify({ sn, page, page_size: pageSize }),

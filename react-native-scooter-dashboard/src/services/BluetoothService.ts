@@ -261,6 +261,7 @@ export class BluetoothService {
     await BleManager.connect(peripheralId);
     await this.delay(350);
     await BleManager.retrieveServices(peripheralId);
+    let notificationError: string | null = null;
 
     try {
       await BleManager.startNotification(
@@ -269,11 +270,10 @@ export class BluetoothService {
         NIU_NOTIFY_CHARACTERISTIC_UUID,
       );
     } catch (error) {
-      this.setState({
-        lastError: `Connected, but notifications failed: ${this.errorMessage(
-          error,
-        )}`,
-      });
+      notificationError = `Connected, but notifications failed: ${this.errorMessage(
+        error,
+      )}`;
+      this.setState({ lastError: notificationError });
     }
 
     await AsyncStorage.setItem(STORAGE_LAST_PERIPHERAL_ID, peripheralId);
@@ -283,7 +283,7 @@ export class BluetoothService {
       peripheralId,
       peripheralName: name ?? this.state.peripheralName ?? 'NIU KQi3 Max',
       rssi: rssi ?? this.state.rssi,
-      lastError: null,
+      lastError: notificationError,
     });
   }
 

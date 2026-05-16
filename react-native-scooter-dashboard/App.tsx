@@ -14,7 +14,13 @@ import {
   UnlockKeyhole,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -303,23 +309,32 @@ export default function App(): React.ReactElement {
   const [commandMessage, setCommandMessage] = useState(
     'Ready to send remote commands',
   );
+  const layoutLoadedRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
 
     AsyncStorage.getItem(LAYOUT_STORAGE_KEY)
       .then(storedLayout => {
-        if (!mounted || !storedLayout) {
+        if (!mounted) {
           return;
         }
 
-        const parsedLayout = normalizeStoredLayout(
-          JSON.parse(storedLayout) as StoredLayout,
-        );
-        setTileOrder(parsedLayout.order);
-        setTileVisibility(parsedLayout.visibility);
+        if (storedLayout) {
+          const parsedLayout = normalizeStoredLayout(
+            JSON.parse(storedLayout) as StoredLayout,
+          );
+          setTileOrder(parsedLayout.order);
+          setTileVisibility(parsedLayout.visibility);
+        }
+
+        layoutLoadedRef.current = true;
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (mounted) {
+          layoutLoadedRef.current = true;
+        }
+      });
 
     return () => {
       mounted = false;
@@ -327,6 +342,10 @@ export default function App(): React.ReactElement {
   }, []);
 
   useEffect(() => {
+    if (!layoutLoadedRef.current) {
+      return;
+    }
+
     const storedLayout: StoredLayout = {
       order: tileOrder,
       visibility: tileVisibility,

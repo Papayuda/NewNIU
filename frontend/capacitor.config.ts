@@ -1,6 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
+<<<<<<< Updated upstream
   appId: 'com.niucontroller.app',
   appName: 'NIU Controller',
   webDir: 'dist',
@@ -17,6 +18,11 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
   },
+=======
+  appId: 'com.papayuda.newniu',
+  appName: 'NewNiu',
+  webDir: 'dist'
+>>>>>>> Stashed changes
 };
 
 export default config;

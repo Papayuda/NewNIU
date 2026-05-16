@@ -11,18 +11,26 @@ let package = Package(
             targets: ["CapApp-SPM"])
     ],
     dependencies: [
+<<<<<<< Updated upstream
         .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", exact: "8.3.4"),
         .package(name: "CapacitorCommunityBluetoothLe", path: "../../../node_modules/@capacitor-community/bluetooth-le"),
         .package(name: "CapacitorPreferences", path: "../../../node_modules/@capacitor/preferences")
+=======
+        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", exact: "8.3.4")
+>>>>>>> Stashed changes
     ],
     targets: [
         .target(
             name: "CapApp-SPM",
             dependencies: [
                 .product(name: "Capacitor", package: "capacitor-swift-pm"),
+<<<<<<< Updated upstream
                 .product(name: "Cordova", package: "capacitor-swift-pm"),
                 .product(name: "CapacitorCommunityBluetoothLe", package: "CapacitorCommunityBluetoothLe"),
                 .product(name: "CapacitorPreferences", package: "CapacitorPreferences")
+=======
+                .product(name: "Cordova", package: "capacitor-swift-pm")
+>>>>>>> Stashed changes
             ]
         )
     ]

@@ -8,11 +8,17 @@ import {
 } from 'react-native';
 import BleManager from 'react-native-ble-manager';
 
-export const NIU_SERVICE_UUID = '0000fee7-0000-1000-8000-00805f9b34fb';
+export const NIU_SERVICE_UUID = '8ec94e30-f315-4f60-9fb8-838830daea50';
 export const NIU_WRITE_CHARACTERISTIC_UUID =
-  '000036f5-0000-1000-8000-00805f9b34fb';
+  '8ec94e32-f315-4f60-9fb8-838830daea50';
 export const NIU_NOTIFY_CHARACTERISTIC_UUID =
-  '000036f6-0000-1000-8000-00805f9b34fb';
+  '8ec94e31-f315-4f60-9fb8-838830daea50';
+
+const NIU_DISCOVERY_SERVICE_UUIDS = [
+  NIU_SERVICE_UUID,
+  '00010203-0405-0607-0809-0a0b0c0d1912',
+  '00010203-0405-0607-0809-0a0b0c0d1915',
+];
 
 export const NIU_AUTH_WAKE_HEX = '060101011A1B314F421966216B407C2E';
 export const NIU_AUTH_SESSION_HEX = '0201010125986A6D7873473C5C5D124C';
@@ -149,9 +155,9 @@ export class BluetoothService {
       }
     }
 
-    const connectedPeripherals = await BleManager.getConnectedPeripherals([
-      NIU_SERVICE_UUID,
-    ]);
+    const connectedPeripherals = await BleManager.getConnectedPeripherals(
+      NIU_DISCOVERY_SERVICE_UUIDS,
+    );
     const connectedNiuPeripheral = connectedPeripherals.find(peripheral =>
       this.isMatchingPeripheral(peripheral as BlePeripheral),
     );
@@ -172,7 +178,7 @@ export class BluetoothService {
     }
 
     this.setState({ isScanning: true, lastError: null });
-    await BleManager.scan([NIU_SERVICE_UUID], SCAN_SECONDS, false);
+    await BleManager.scan([], SCAN_SECONDS, false);
   }
 
   async connect(
@@ -237,14 +243,24 @@ export class BluetoothService {
       }
 
       const bytes = this.hexToBytes(hexCommand);
-      await BleManager.writeWithoutResponse(
-        this.state.peripheralId,
-        NIU_SERVICE_UUID,
-        NIU_WRITE_CHARACTERISTIC_UUID,
-        bytes,
-        WRITE_CHUNK_BYTES,
-        WRITE_QUEUE_SLEEP_MS,
-      );
+      try {
+        await BleManager.write(
+          this.state.peripheralId,
+          NIU_SERVICE_UUID,
+          NIU_WRITE_CHARACTERISTIC_UUID,
+          bytes,
+          WRITE_CHUNK_BYTES,
+        );
+      } catch {
+        await BleManager.writeWithoutResponse(
+          this.state.peripheralId,
+          NIU_SERVICE_UUID,
+          NIU_WRITE_CHARACTERISTIC_UUID,
+          bytes,
+          WRITE_CHUNK_BYTES,
+          WRITE_QUEUE_SLEEP_MS,
+        );
+      }
     });
   }
 
@@ -434,8 +450,9 @@ export class BluetoothService {
       ...(peripheral.advertising?.services ?? []),
     ].map(uuid => this.normalizeUuid(uuid));
 
-    const advertisedServiceMatch =
-      advertisedServices.includes(NIU_SERVICE_UUID);
+    const advertisedServiceMatch = NIU_DISCOVERY_SERVICE_UUIDS.some(uuid =>
+      advertisedServices.includes(uuid),
+    );
     const name = `${peripheral.name ?? ''} ${
       peripheral.advertising?.localName ?? ''
     }`.toLowerCase();

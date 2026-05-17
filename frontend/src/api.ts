@@ -18,6 +18,8 @@ const PREF_TOKEN = 'niu_token';
 const PREF_ACCOUNT = 'niu_account';
 const PREF_PASSWORD = 'niu_password';
 const PREF_COUNTRY = 'niu_country_code';
+const PREF_CRED_VERSION = 'niu_cred_version';
+const CRED_VERSION_HASHED = '2';
 
 function md5(text: string): string {
   // Simple MD5 implementation for password hashing
@@ -139,24 +141,35 @@ async function saveCredentials(
   await Preferences.set({ key: PREF_ACCOUNT, value: account });
   await Preferences.set({ key: PREF_PASSWORD, value: md5(password) });
   await Preferences.set({ key: PREF_COUNTRY, value: countryCode });
+  await Preferences.set({ key: PREF_CRED_VERSION, value: CRED_VERSION_HASHED });
 }
 
 async function getSavedCredentials(): Promise<{
   account: string;
   password: string;
   countryCode: string;
+  isHashed: boolean;
 } | null> {
   const { value: account } = await Preferences.get({ key: PREF_ACCOUNT });
   const { value: password } = await Preferences.get({ key: PREF_PASSWORD });
   const { value: countryCode } = await Preferences.get({ key: PREF_COUNTRY });
+  const { value: version } = await Preferences.get({ key: PREF_CRED_VERSION });
   if (!account || !password) return null;
-  return { account, password, countryCode: countryCode || '1' };
+  const isHashed = version === CRED_VERSION_HASHED;
+  if (!isHashed) {
+    const hashed = md5(password);
+    await Preferences.set({ key: PREF_PASSWORD, value: hashed });
+    await Preferences.set({ key: PREF_CRED_VERSION, value: CRED_VERSION_HASHED });
+    return { account, password: hashed, countryCode: countryCode || '1', isHashed: true };
+  }
+  return { account, password, countryCode: countryCode || '1', isHashed: true };
 }
 
 async function clearCredentials(): Promise<void> {
   await Preferences.remove({ key: PREF_ACCOUNT });
   await Preferences.remove({ key: PREF_PASSWORD });
   await Preferences.remove({ key: PREF_COUNTRY });
+  await Preferences.remove({ key: PREF_CRED_VERSION });
 }
 
 // ── NIU API helpers ──

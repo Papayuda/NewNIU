@@ -40,7 +40,7 @@ export default function LoginPage() {
         setAccount(creds.account);
         setPassword(creds.password);
         setCountryCode(creds.countryCode);
-        setSavedHash(true);
+        setSavedHash(creds.isHashed);
       }
     });
   }, []);

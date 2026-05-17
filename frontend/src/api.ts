@@ -137,7 +137,7 @@ async function saveCredentials(
   countryCode: string,
 ): Promise<void> {
   await Preferences.set({ key: PREF_ACCOUNT, value: account });
-  await Preferences.set({ key: PREF_PASSWORD, value: password });
+  await Preferences.set({ key: PREF_PASSWORD, value: md5(password) });
   await Preferences.set({ key: PREF_COUNTRY, value: countryCode });
 }
 
@@ -216,10 +216,12 @@ export async function login(
   account: string,
   password: string,
   countryCode: string = '1',
+  preHashed: boolean = false,
 ): Promise<void> {
+  const hashedPassword = preHashed ? password : md5(password);
   const body = Object.entries({
     account,
-    password: md5(password),
+    password: hashedPassword,
     grant_type: 'password',
     scope: 'base',
     app_id: 'niu_ktdrr960',
@@ -245,7 +247,9 @@ export async function login(
   }
 
   await setToken(json.data.token.access_token);
-  await saveCredentials(account, password, countryCode);
+  if (!preHashed) {
+    await saveCredentials(account, password, countryCode);
+  }
 }
 
 export async function getVehicles(): Promise<unknown[]> {
@@ -261,6 +265,11 @@ export async function getVehicles(): Promise<unknown[]> {
     },
     data: '',
   });
+  if (resp.status === 401) {
+    await clearToken();
+    throw new Error('Session expired');
+  }
+  if (resp.status >= 400) throw new Error(`API error ${resp.status}`);
   const json = typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data;
   return json?.data ?? [];
 }

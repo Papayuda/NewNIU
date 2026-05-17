@@ -30,6 +30,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [savedHash, setSavedHash] = useState(false);
   const navigate = useNavigate();
   const { setAuthenticated } = useAuth();
 
@@ -39,6 +40,7 @@ export default function LoginPage() {
         setAccount(creds.account);
         setPassword(creds.password);
         setCountryCode(creds.countryCode);
+        setSavedHash(true);
       }
     });
   }, []);
@@ -48,7 +50,7 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      await login(account, password, countryCode);
+      await login(account, password, countryCode, savedHash);
       setAuthenticated(true);
       navigate('/');
     } catch (err) {
@@ -121,7 +123,7 @@ export default function LoginPage() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setSavedHash(false); }}
                   placeholder="Enter your password"
                   required
                   className="w-full bg-dark-700 border border-dark-500 rounded-xl px-4 py-3 pr-12 text-text-primary placeholder-text-muted focus:outline-none focus:border-niu-cyan transition-colors"

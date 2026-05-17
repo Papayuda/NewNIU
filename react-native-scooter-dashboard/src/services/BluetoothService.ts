@@ -413,7 +413,6 @@ export class BluetoothService {
         ? [
             PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
             PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           ]
         : [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
 

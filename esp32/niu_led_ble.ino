@@ -12,6 +12,7 @@
  *   0xFF04 — Speed (1 byte: 0-255)
  *   0xFF05 — Power (1 byte: 0/1)
  *   0xFF06 — Zones (1 byte: bitmask)
+ *   0xFF07 — Passkey (4 bytes: uint32 LE, 100000-999999)
  *
  * Wiring:
  *   ESP32 GPIO5 → WS2812B Data In
@@ -31,6 +32,7 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include <BLESecurity.h>
+#include <Preferences.h>
 
 // ─── LED Configuration ───
 // Adjust these for your setup:
@@ -50,6 +52,7 @@ CRGB leds[NUM_LEDS];
 #define CHAR_SPEED_UUID     "0000ff04-0000-1000-8000-00805f9b34fb"
 #define CHAR_POWER_UUID     "0000ff05-0000-1000-8000-00805f9b34fb"
 #define CHAR_ZONES_UUID     "0000ff06-0000-1000-8000-00805f9b34fb"
+#define CHAR_PASSKEY_UUID   "0000ff07-0000-1000-8000-00805f9b34fb"
 
 // ─── State ───
 uint8_t currentR = 255, currentG = 0, currentB = 0;
@@ -60,6 +63,23 @@ bool    currentPower = true;
 uint8_t currentZones = 0x01; // bit0=underglow,bit1=dash,bit2=rear,bit3=front,bit4=wheels
 bool    deviceConnected = false;
 uint8_t hueOffset = 0;
+
+// ─── Passkey (stored in NVS, user-configurable) ───
+Preferences prefs;
+uint32_t currentPasskey = 123456;  // default
+
+void loadPasskey() {
+  prefs.begin("ble", true);  // read-only
+  currentPasskey = prefs.getUInt("passkey", 123456);
+  prefs.end();
+}
+
+void savePasskey(uint32_t pk) {
+  currentPasskey = pk;
+  prefs.begin("ble", false);  // read-write
+  prefs.putUInt("passkey", pk);
+  prefs.end();
+}
 
 // ─── BLE Callbacks ───
 class ServerCallbacks : public BLEServerCallbacks {
@@ -132,8 +152,43 @@ class ZonesCallback : public BLECharacteristicCallbacks {
 };
 
 // ─── Security (encrypted bonding with MITM protection) ───
+class PasskeyCallback : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) {
+    if (c->getLength() >= 4) {
+      uint8_t* d = c->getData();
+      uint32_t newKey = d[0] | (d[1] << 8) | (d[2] << 16) | (d[3] << 24);
+      if (newKey >= 100000 && newKey <= 999999) {
+        savePasskey(newKey);
+        esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY,
+          &currentPasskey, sizeof(uint32_t));
+        // Clear existing bonds so new passkey takes effect
+        int count = esp_ble_get_bond_device_num();
+        if (count > 0) {
+          esp_ble_bond_dev_t* devs = (esp_ble_bond_dev_t*)malloc(count * sizeof(esp_ble_bond_dev_t));
+          if (devs) {
+            esp_ble_get_bond_device_list(&count, devs);
+            for (int i = 0; i < count; i++) {
+              esp_ble_remove_bond_device(devs[i].bd_addr);
+            }
+            free(devs);
+          }
+        }
+        Serial.printf("Passkey updated to: %u (re-pair required)\n", newKey);
+      }
+    }
+  }
+  void onRead(BLECharacteristic* c) {
+    uint8_t buf[4];
+    buf[0] = currentPasskey & 0xFF;
+    buf[1] = (currentPasskey >> 8) & 0xFF;
+    buf[2] = (currentPasskey >> 16) & 0xFF;
+    buf[3] = (currentPasskey >> 24) & 0xFF;
+    c->setValue(buf, 4);
+  }
+};
+
 class SecurityCallback : public BLESecurityCallbacks {
-  uint32_t onPassKeyRequest() { return 123456; }
+  uint32_t onPassKeyRequest() { return currentPasskey; }
   void onPassKeyNotify(uint32_t passkey) {
     Serial.printf("Passkey: %d\n", passkey);
   }
@@ -260,6 +315,10 @@ void setup() {
   FastLED.clear();
   FastLED.show();
 
+  // Load user-configured passkey from NVS (default: 123456)
+  loadPasskey();
+  Serial.printf("Passkey: %u\n", currentPasskey);
+
   // Initialize BLE with encryption
   BLEDevice::init("NIU-LED");
   BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_MITM);
@@ -271,9 +330,9 @@ void setup() {
   security->setInitEncryptionKey(
     ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
 
-  // Set static passkey so phones can pair without Serial access
-  uint32_t passkey = 123456;
-  esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof(uint32_t));
+  // Set static passkey from NVS
+  esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY,
+    &currentPasskey, sizeof(uint32_t));
 
   BLEServer* server = BLEDevice::createServer();
   server->setCallbacks(new ServerCallbacks());
@@ -300,6 +359,16 @@ void setup() {
 
   BLECharacteristic* zoneChar = createChar(svc, CHAR_ZONES_UUID, new ZonesCallback());
   zoneChar->setValue(&currentZones, 1);
+
+  // Passkey characteristic — lets the app read/update the BLE pairing passkey
+  BLECharacteristic* passkeyChar = createChar(svc, CHAR_PASSKEY_UUID, new PasskeyCallback());
+  uint8_t pkBuf[4] = {
+    (uint8_t)(currentPasskey & 0xFF),
+    (uint8_t)((currentPasskey >> 8) & 0xFF),
+    (uint8_t)((currentPasskey >> 16) & 0xFF),
+    (uint8_t)((currentPasskey >> 24) & 0xFF)
+  };
+  passkeyChar->setValue(pkBuf, 4);
 
   svc->start();
 

@@ -18,6 +18,16 @@ frontend/android/build/
 frontend/ios/App/App/public/
 frontend/android/app/src/main/assets/public/
 
+# React Native native build artifacts
+react-native-scooter-dashboard/android/.gradle/
+react-native-scooter-dashboard/android/app/build/
+react-native-scooter-dashboard/android/build/
+react-native-scooter-dashboard/ios/Pods/
+react-native-scooter-dashboard/ios/build/
+!react-native-scooter-dashboard/ios/NiuKqi3MaxDashboard.xcodeproj/project.xcworkspace/
+!react-native-scooter-dashboard/ios/NiuKqi3MaxDashboard.xcodeproj/project.xcworkspace/**
+react-native-scooter-dashboard/vendor/bundle/
+
 # Test plans
 test-plan*.md
 test-report*.md

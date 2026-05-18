@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { login, getSavedCredentials } from '../api';
@@ -31,6 +31,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [savedHash, setSavedHash] = useState(false);
+  const storedHashRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const { setAuthenticated } = useAuth();
 
@@ -41,6 +42,7 @@ export default function LoginPage() {
         setPassword(creds.password);
         setCountryCode(creds.countryCode);
         setSavedHash(creds.isHashed);
+        if (creds.isHashed) storedHashRef.current = creds.password;
       }
     });
   }, []);
@@ -50,7 +52,8 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      await login(account, password, countryCode, savedHash);
+      const isPreHashed = savedHash || (storedHashRef.current !== null && password === storedHashRef.current);
+      await login(account, password, countryCode, isPreHashed);
       setAuthenticated(true);
       navigate('/');
     } catch (err) {

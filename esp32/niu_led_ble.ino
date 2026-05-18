@@ -271,6 +271,10 @@ void setup() {
   security->setInitEncryptionKey(
     ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
 
+  // Set static passkey so phones can pair without Serial access
+  uint32_t passkey = 123456;
+  esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof(uint32_t));
+
   BLEServer* server = BLEDevice::createServer();
   server->setCallbacks(new ServerCallbacks());
 

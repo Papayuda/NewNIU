@@ -135,11 +135,11 @@ async function isLoggedIn(): Promise<boolean> {
 
 async function saveCredentials(
   account: string,
-  password: string,
+  hashedPassword: string,
   countryCode: string,
 ): Promise<void> {
   await Preferences.set({ key: PREF_ACCOUNT, value: account });
-  await Preferences.set({ key: PREF_PASSWORD, value: md5(password) });
+  await Preferences.set({ key: PREF_PASSWORD, value: hashedPassword });
   await Preferences.set({ key: PREF_COUNTRY, value: countryCode });
   await Preferences.set({ key: PREF_CRED_VERSION, value: CRED_VERSION_HASHED });
 }
@@ -260,9 +260,7 @@ export async function login(
   }
 
   await setToken(json.data.token.access_token);
-  if (!preHashed) {
-    await saveCredentials(account, password, countryCode);
-  }
+  await saveCredentials(account, hashedPassword, countryCode);
 }
 
 export async function getVehicles(): Promise<unknown[]> {

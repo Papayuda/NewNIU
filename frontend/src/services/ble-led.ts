@@ -248,7 +248,8 @@ class BLELedController {
   }
 
   async setPasskey(passkey: number): Promise<void> {
-    if (!this.deviceId || !this.availableChars.has(CHAR_PASSKEY)) return;
+    if (!this.deviceId || !this.availableChars.has(CHAR_PASSKEY))
+      throw new Error('Passkey characteristic not available on this device');
     if (passkey < 100000 || passkey > 999999) throw new Error('Passkey must be 6 digits (100000–999999)');
     const dv = new DataView(new ArrayBuffer(4));
     dv.setUint32(0, passkey, true);  // little-endian

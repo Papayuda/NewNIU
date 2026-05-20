@@ -1,16 +1,8 @@
-<<<<<<< Updated upstream
 /**
  * NIU Cloud API client — calls NIU endpoints directly from the device.
  * Credentials and tokens stored locally via Capacitor Preferences.
  * No backend server required.
  */
-=======
-import { CapacitorHttp } from '@capacitor/core';
-import md5 from 'md5';
-
-const AUTH_BASE = 'https://account-fk.niu.com';
-const DATA_BASE = 'https://app-api-fk.niu.com';
->>>>>>> Stashed changes
 
 import { Preferences } from '@capacitor/preferences';
 import { CapacitorHttp } from '@capacitor/core';
@@ -26,8 +18,9 @@ const PREF_TOKEN = 'niu_token';
 const PREF_ACCOUNT = 'niu_account';
 const PREF_PASSWORD = 'niu_password';
 const PREF_COUNTRY = 'niu_country_code';
+const PREF_CRED_VERSION = 'niu_cred_version';
+const CRED_VERSION_HASHED = '2';
 
-<<<<<<< Updated upstream
 function md5(text: string): string {
   // Simple MD5 implementation for password hashing
   // Uses SubtleCrypto where available, falls back to manual implementation
@@ -142,30 +135,41 @@ async function isLoggedIn(): Promise<boolean> {
 
 async function saveCredentials(
   account: string,
-  password: string,
+  hashedPassword: string,
   countryCode: string,
 ): Promise<void> {
   await Preferences.set({ key: PREF_ACCOUNT, value: account });
-  await Preferences.set({ key: PREF_PASSWORD, value: password });
+  await Preferences.set({ key: PREF_PASSWORD, value: hashedPassword });
   await Preferences.set({ key: PREF_COUNTRY, value: countryCode });
+  await Preferences.set({ key: PREF_CRED_VERSION, value: CRED_VERSION_HASHED });
 }
 
 async function getSavedCredentials(): Promise<{
   account: string;
   password: string;
   countryCode: string;
+  isHashed: boolean;
 } | null> {
   const { value: account } = await Preferences.get({ key: PREF_ACCOUNT });
   const { value: password } = await Preferences.get({ key: PREF_PASSWORD });
   const { value: countryCode } = await Preferences.get({ key: PREF_COUNTRY });
+  const { value: version } = await Preferences.get({ key: PREF_CRED_VERSION });
   if (!account || !password) return null;
-  return { account, password, countryCode: countryCode || '1' };
+  const isHashed = version === CRED_VERSION_HASHED;
+  if (!isHashed) {
+    const hashed = md5(password);
+    await Preferences.set({ key: PREF_PASSWORD, value: hashed });
+    await Preferences.set({ key: PREF_CRED_VERSION, value: CRED_VERSION_HASHED });
+    return { account, password: hashed, countryCode: countryCode || '1', isHashed: true };
+  }
+  return { account, password, countryCode: countryCode || '1', isHashed: true };
 }
 
 async function clearCredentials(): Promise<void> {
   await Preferences.remove({ key: PREF_ACCOUNT });
   await Preferences.remove({ key: PREF_PASSWORD });
   await Preferences.remove({ key: PREF_COUNTRY });
+  await Preferences.remove({ key: PREF_CRED_VERSION });
 }
 
 // ── NIU API helpers ──
@@ -189,42 +193,6 @@ async function niuGet(path: string): Promise<Record<string, unknown>> {
   if (resp.status >= 400) throw new Error(`API error ${resp.status}`);
   const data = typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data;
   return data?.data ?? {};
-=======
-async function niuGet<T>(endpoint: string): Promise<T> {
-  const token = getToken();
-  const response = await CapacitorHttp.get({
-    url: `${DATA_BASE}${endpoint}`,
-    headers: {
-      token: token || '',
-      'Accept-Language': 'en-US',
-    },
-  });
-  if (response.status === 401) {
-    clearToken();
-    window.location.href = '/login';
-    throw new Error('Session expired');
-  }
-  return response.data;
-}
-
-async function niuPost<T>(endpoint: string, data: Record<string, unknown>): Promise<T> {
-  const token = getToken();
-  const response = await CapacitorHttp.post({
-    url: `${DATA_BASE}${endpoint}`,
-    headers: {
-      'Content-Type': 'application/json',
-      token: token || '',
-      'Accept-Language': 'en-US',
-    },
-    data,
-  });
-  if (response.status === 401) {
-    clearToken();
-    window.location.href = '/login';
-    throw new Error('Session expired');
-  }
-  return response.data;
->>>>>>> Stashed changes
 }
 
 async function niuPostForm(
@@ -261,11 +229,12 @@ export async function login(
   account: string,
   password: string,
   countryCode: string = '1',
+  preHashed: boolean = false,
 ): Promise<void> {
-<<<<<<< Updated upstream
+  const hashedPassword = preHashed ? password : md5(password);
   const body = Object.entries({
     account,
-    password: md5(password),
+    password: hashedPassword,
     grant_type: 'password',
     scope: 'base',
     app_id: 'niu_ktdrr960',
@@ -288,31 +257,13 @@ export async function login(
 
   if (!json?.data?.token?.access_token) {
     throw new Error(json?.desc || 'Authentication failed');
-=======
-  const response = await CapacitorHttp.post({
-    url: `${AUTH_BASE}/appv2/v4/account/token/en`,
-    headers: { 'Content-Type': 'application/json' },
-    data: {
-      account,
-      password: md5(password),
-      country_code: countryCode,
-    },
-  });
-
-  const body = response.data;
-  if (body?.status === 0 && body?.data?.token?.access_token) {
-    setToken(body.data.token.access_token);
-  } else {
-    throw new Error(body?.desc || body?.message || 'Login failed — check credentials');
->>>>>>> Stashed changes
   }
 
   await setToken(json.data.token.access_token);
-  await saveCredentials(account, password, countryCode);
+  await saveCredentials(account, hashedPassword, countryCode);
 }
 
 export async function getVehicles(): Promise<unknown[]> {
-<<<<<<< Updated upstream
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
   const resp = await CapacitorHttp.post({
@@ -325,6 +276,11 @@ export async function getVehicles(): Promise<unknown[]> {
     },
     data: '',
   });
+  if (resp.status === 401) {
+    await clearToken();
+    throw new Error('Session expired');
+  }
+  if (resp.status >= 400) throw new Error(`API error ${resp.status}`);
   const json = typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data;
   return json?.data ?? [];
 }
@@ -371,58 +327,9 @@ export async function getTracks(
     sn,
     index: String(page - 1),
     pagesize: String(pageSize),
-=======
-  const resp = await niuGet<{ data: unknown[] }>('/motoinfo/list');
-  return resp.data || [];
-}
-
-export async function getVehicleDetail(sn: string): Promise<Record<string, unknown>> {
-  const resp = await niuPost<{ data: Record<string, unknown> }>('/motoinfo/detail', { sn });
-  return resp.data || {};
-}
-
-export async function getVehiclePosition(sn: string): Promise<Record<string, unknown>> {
-  const resp = await niuPost<{ data: Record<string, unknown> }>('/motoinfo/overallTally', { sn });
-  return resp.data || {};
-}
-
-export async function getOverallTally(sn: string): Promise<Record<string, unknown>> {
-  const resp = await niuPost<{ data: Record<string, unknown> }>('/motoinfo/overallTally', { sn });
-  return resp.data || {};
-}
-
-export async function getBatteryInfo(sn: string): Promise<Record<string, unknown>> {
-  const resp = await niuPost<{ data: Record<string, unknown> }>('/v3/motor_data/battery_info', { sn });
-  return resp.data || {};
-}
-
-export async function getBatteryHealth(sn: string): Promise<Record<string, unknown>> {
-  const resp = await niuPost<{ data: Record<string, unknown> }>('/v3/motor_data/battery_info', { sn });
-  return resp.data || {};
-}
-
-export async function getBatteryChart(sn: string, page = 1): Promise<Record<string, unknown>> {
-  const resp = await niuPost<{ data: Record<string, unknown> }>('/v3/motor_data/battery_chart/', {
-    sn,
-    page,
-    page_size: 'A',  // must be string 'A', not a number
-  });
-  return resp.data || {};
-}
-
-export async function getMotorInfo(sn: string): Promise<Record<string, unknown>> {
-  const resp = await niuPost<{ data: Record<string, unknown> }>('/v3/motor_data/index_info', { sn });
-  return resp.data || {};
-}
-
-export async function getTracks(sn: string, page = 1, pageSize = 10): Promise<Record<string, unknown>> {
-  const resp = await niuPost<{ data: Record<string, unknown> }>('/v3/motor_data/track', {
-    sn, index: page, pagesize: pageSize,
->>>>>>> Stashed changes
   });
 }
 
-<<<<<<< Updated upstream
 export async function getTrackDetail(
   sn: string,
   trackId: string,
@@ -433,18 +340,6 @@ export async function getTrackDetail(
 
 export async function getFirmwareVersion(sn: string): Promise<Record<string, unknown>> {
   return niuPostForm('/motorota/getfirmwareversion', { sn });
-=======
-export async function getTrackDetail(sn: string, trackId: string): Promise<Record<string, unknown>> {
-  const resp = await niuPost<{ data: Record<string, unknown> }>('/v3/motor_data/track/detail', {
-    sn, track_id: trackId,
-  });
-  return resp.data || {};
-}
-
-export async function getFirmwareVersion(sn: string): Promise<Record<string, unknown>> {
-  const resp = await niuPost<{ data: Record<string, unknown> }>('/motorota/firmware/version', { sn });
-  return resp.data || {};
->>>>>>> Stashed changes
 }
 
 export async function getUpdateInfo(sn: string): Promise<Record<string, unknown>> {

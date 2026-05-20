@@ -14,6 +14,7 @@
  *   SPEED      (ff04) — 1 byte 0–255
  *   POWER      (ff05) — 1 byte 0/1
  *   ZONES      (ff06) — bitmask 1 byte (bit0=underglow, bit1=dash, bit2=rear, bit3=front, bit4=wheel)
+ *   PASSKEY    (ff07) — 4 bytes uint32 LE (100000–999999), user-configurable BLE pairing passkey
  */
 
 import { BleClient, numberToUUID } from '@capacitor-community/bluetooth-le';
@@ -25,6 +26,7 @@ const CHAR_BRIGHTNESS = numberToUUID(0xff03);
 const CHAR_SPEED = numberToUUID(0xff04);
 const CHAR_POWER = numberToUUID(0xff05);
 const CHAR_ZONES = numberToUUID(0xff06);
+const CHAR_PASSKEY = numberToUUID(0xff07);
 
 export const EFFECTS = [
   { id: 0, name: 'Solid', desc: 'Static single color' },
@@ -237,6 +239,21 @@ class BLELedController {
     dv.setUint8(0, mask & 0xff);
     await BleClient.write(this.deviceId, SERVICE_UUID, CHAR_ZONES, dv);
     this.notifyState({ zoneMask: mask });
+  }
+
+  async readPasskey(): Promise<number | null> {
+    if (!this.deviceId || !this.availableChars.has(CHAR_PASSKEY)) return null;
+    const val = await BleClient.read(this.deviceId, SERVICE_UUID, CHAR_PASSKEY);
+    return val.getUint32(0, true);  // little-endian
+  }
+
+  async setPasskey(passkey: number): Promise<void> {
+    if (!this.deviceId || !this.availableChars.has(CHAR_PASSKEY))
+      throw new Error('Passkey characteristic not available on this device');
+    if (passkey < 100000 || passkey > 999999) throw new Error('Passkey must be 6 digits (100000–999999)');
+    const dv = new DataView(new ArrayBuffer(4));
+    dv.setUint32(0, passkey, true);  // little-endian
+    await BleClient.write(this.deviceId, SERVICE_UUID, CHAR_PASSKEY, dv);
   }
 }
 

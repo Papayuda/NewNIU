@@ -20,7 +20,7 @@ A mobile app for controlling and monitoring NIU electric vehicles (NQi, MQi, UQi
   - Brightness and speed sliders
   - 5 configurable zones (Underglow, Dashboard, Rear, Front, Wheels)
 - **Dark Theme** — Sleek dark UI with red/cyan accent colors
-- **Local Credentials** — NIU login stored securely on-device via Capacitor Preferences
+- **Local Credentials** — NIU login stored on-device via Capacitor Preferences (password stored as MD5 hash, not plaintext)
 
 ## Architecture
 

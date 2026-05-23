@@ -1,77 +1,65 @@
 ---
 name: testing-niu-controller
-description: End-to-end testing of the NIU Controller Capacitor mobile app. Use when verifying login, navigation, mobile responsive layout, Lighting BLE controls, or credential storage.
+description: Test the NIU Controller app end-to-end. Use when verifying UI changes, credential storage, BLE lighting features, or mobile responsiveness.
 ---
 
-# Testing NIU Controller
+# Testing NIU Controller App
 
-## Prerequisites
+## Dev Server Setup
 
-- Node.js and npm installed
-- Frontend dependencies: `cd frontend && npm install`
-- Dev server: `cd frontend && npx vite --host 0.0.0.0 --port 5173`
+```bash
+cd frontend && npm install && npx vite --host 0.0.0.0 --port 5173
+```
+
+The app runs at `http://localhost:5173`. No backend server is needed — the app calls NIU Cloud API directly.
 
 ## Devin Secrets Needed
 
-- `NIU_ACCOUNT` — NIU cloud account email
-- `NIU_PASSWORD` — NIU cloud account password
+- `NIU_ACCOUNT`: NIU cloud account email
+- `NIU_PASSWORD`: NIU cloud account password
 
-## Test Environment
+## Navigation
 
-The app is a Capacitor-wrapped React app. In web preview mode (`localhost:5173`):
+- **Desktop**: Sidebar with 7 links (Dashboard, Battery, Motor, Location, Trips, Firmware, Lighting) + Logout button
+- **Mobile (390x844)**: Bottom nav shows 5 items, "More" button opens drawer with remaining pages
+- **Login page**: Shows when no token is stored. Fields: Account (email), Password, Country Code dropdown
 
-- **Login works** — NIU auth endpoint (`account-fk.niu.com`) allows CORS
-- **Vehicle data does NOT load** — POST to `/motoinfo/list` is blocked by CORS. This is expected; the app uses `CapacitorHttp` which bypasses CORS on native iOS/Android builds. Dashboard will show "No Vehicles Found" in web preview.
-- **BLE is not available** — No Bluetooth hardware in test environment. Lighting page UI renders correctly but "Connect BLE" button will fail.
+## Key Test Flows
 
-## Key Test Areas
+### Login & Credentials
+1. Navigate to `http://localhost:5173` — if no token, login page appears
+2. Enter NIU credentials and login
+3. Verify credentials stored in localStorage with `CapacitorStorage.` prefix:
+   - `CapacitorStorage.niu_password` should be 32-char hex MD5 hash (not plaintext)
+   - `CapacitorStorage.niu_cred_version` should be `"2"`
+   - `CapacitorStorage.niu_token` should contain access token
+4. Refresh page — credentials should auto-fill and login succeed
 
-### 1. Login Flow
-- Navigate to `/login`
-- Enter NIU credentials (country code, email, password)
-- Click "Connect to NIU Cloud"
-- **Verify**: Redirects to `/` (Dashboard), sidebar shows 7 nav items
-- **Verify storage**: Check browser console for `CapacitorStorage.niu_token`, `CapacitorStorage.niu_account`, `CapacitorStorage.niu_password`, `CapacitorStorage.niu_country_code` in localStorage
+### Lighting / BLE Page
+- Navigate via sidebar → Lighting
+- **Without ESP32 hardware**: Can only test UI rendering, input validation, disabled states
+- **BLE Security section**: Scroll down past Live Preview
+  - Passkey input: numeric only (letters stripped), 6-digit max, range 100000-999999
+  - Save button disabled when: not connected, input < 6 digits, value < 100000
+  - Helper text shows "Connect to your ESP32 via BLE..." when disconnected
+- **Controls**: Color picker + 16 presets, 10 effects, Brightness/Speed sliders, 5 zone toggles
+- **Connect BLE button**: Will trigger BLE scan (shows error in web preview — expected)
 
-### 2. Invalid Login Error Handling
-- Enter invalid email/password
-- **Verify**: Red inline error banner appears (e.g., "User does not exist")
-- **Verify**: App stays on `/login`, button returns to normal (not stuck loading)
-- Note: NIU API might rate-limit after multiple failed attempts
+### Vehicle Data (CORS limitation)
+- In web preview, NIU data endpoints are blocked by CORS — this is expected
+- On native iOS/Android via Capacitor, CapacitorHttp bypasses CORS
+- Dashboard will show "No Vehicles Found" in web preview if CORS blocks the vehicle list
 
-### 3. Desktop Sidebar Navigation
-- Click each of the 7 sidebar links: Dashboard, Battery, Motor, Location, Trips, Firmware, Lighting
-- **Verify**: Each page renders its heading, active nav highlighted in red
+## Testing Constraints
 
-### 4. Mobile Responsive Layout
-- Use Chrome DevTools device emulation (`Ctrl+Shift+M`) → iPhone 14 (390x844)
-- **Verify**: Desktop sidebar hidden, bottom nav shows 5 items + "More" button
-- Click "More" → drawer slides up with Firmware, Lighting, Logout
-- Tap a drawer item → navigates and closes drawer
+- **BLE features** require a physical ESP32 with the `esp32/niu_led_ble.ino` firmware flashed
+- **Native mobile features** require building with `npm run cap:build:ios` / `cap:build:android`
+- **Vehicle data** may be CORS-blocked in web preview — use native build for full testing
+- **Rate limiting**: NIU API has rate limits; avoid rapid repeated login attempts (wait ~60s between failed attempts)
 
-### 5. Lighting Page
-- Navigate to `/lighting`
-- **Verify**: Title "Ambient Lighting", subtitle, Connect BLE button
-- **Verify**: 16 color swatches, 10 effects (Solid, Breathing, Rainbow, Color Cycle, Strobe, Fire, Meteor, Wave, Twinkle, Chase)
-- **Verify**: Brightness and speed sliders (0-255), 5 zone toggles (Underglow, Dashboard, Rear, Front, Wheels)
+## Common Issues
 
-### 6. Logout
-- Click Logout (sidebar or "More" drawer)
-- **Verify**: Redirects to `/login`, form empty
-- **Verify**: All 4 `CapacitorStorage.*` keys cleared from localStorage
-
-## Console Commands for Storage Verification
-
-```javascript
-// Check stored credentials after login
-Object.keys(localStorage).filter(k => k.startsWith('CapacitorStorage')).forEach(k => console.log(k, localStorage[k]?.length));
-
-// Check credentials cleared after logout
-Object.keys(localStorage).filter(k => k.startsWith('CapacitorStorage')).length === 0;
-```
-
-## Known Limitations
-
-- Vehicle data pages (Dashboard metrics, Battery charts, Motor data, Location map, Trips, Firmware) show empty/placeholder state in web preview due to CORS. These only work on native iOS/Android builds.
-- BLE functionality requires physical ESP32 hardware running the `esp32/niu_led_ble.ino` sketch.
-- NIU API rate limits failed login attempts — space out invalid login tests.
+- If login fails with "Authentication failed", check that the password is being hashed correctly (MD5)
+- If the battery chart endpoint returns 422, ensure `page_size` is sent as string `'A'` not number `7`
+- If BLE connect fails in web preview, this is expected — Web Bluetooth has limited browser support
+- The passkey input might appear to have a placeholder "123456" — this is the default, not a stored value. The actual passkey is only read from the ESP32 on BLE connect.

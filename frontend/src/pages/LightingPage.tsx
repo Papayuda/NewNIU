@@ -10,6 +10,8 @@ import {
   ChevronUp,
   Copy,
   Check,
+  Lock,
+  RefreshCw,
 } from 'lucide-react';
 import { bleLed, EFFECTS, ZONES, type LEDState } from '../services/ble-led';
 
@@ -35,6 +37,10 @@ export default function LightingPage() {
   });
   const [sketchOpen, setSketchOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [passkey, setPasskey] = useState('123456');
+  const [passkeyInput, setPasskeyInput] = useState('');
+  const [passkeySaving, setPasskeySaving] = useState(false);
+  const [passkeyMsg, setPasskeyMsg] = useState('');
 
   useEffect(() => {
     const unsubConn = bleLed.onConnectionChange((isConnected, name) => {
@@ -58,6 +64,11 @@ export default function LightingPage() {
       await bleLed.connect();
       const s = await bleLed.readState();
       setState(s);
+      const pk = await bleLed.readPasskey();
+      if (pk !== null) {
+        setPasskey(String(pk));
+        setPasskeyInput(String(pk));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Connection failed');
     } finally {
@@ -341,6 +352,77 @@ export default function LightingPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* BLE Security / Passkey */}
+      <div className="bg-dark-800 rounded-2xl p-6 border border-dark-600 mb-6">
+        <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <Lock className="w-5 h-5 text-emerald-400" />
+          BLE Security
+        </h2>
+        <p className="text-text-muted text-sm mb-4">
+          Set a custom 6-digit passkey for BLE pairing. Both the ESP32 and your phone must use this passkey to connect. Changing the passkey clears all existing bonds — devices must re-pair.
+        </p>
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <label className="block text-xs text-text-muted mb-1">Pairing Passkey (6 digits)</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={passkeyInput}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
+                setPasskeyInput(val);
+                setPasskeyMsg('');
+              }}
+              placeholder="123456"
+              className="w-full bg-dark-700 border border-dark-500 rounded-xl px-4 py-3 text-text-primary font-mono text-lg tracking-widest focus:outline-none focus:border-emerald-400 transition-colors"
+            />
+          </div>
+          <button
+            disabled={!connected || passkeySaving || passkeyInput.length !== 6 || parseInt(passkeyInput) < 100000}
+            onClick={async () => {
+              setPasskeySaving(true);
+              setPasskeyMsg('');
+              try {
+                await bleLed.setPasskey(parseInt(passkeyInput));
+                setPasskey(passkeyInput);
+                setPasskeyMsg('Passkey updated — re-pair required');
+              } catch (e) {
+                setPasskeyMsg(e instanceof Error ? e.message : 'Failed to update');
+              } finally {
+                setPasskeySaving(false);
+              }
+            }}
+            className="mt-5 flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500/15 border border-emerald-500/50 text-emerald-400 text-sm font-medium hover:bg-emerald-500/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {passkeySaving ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Lock className="w-4 h-4" />
+            )}
+            Save
+          </button>
+        </div>
+        {passkeyMsg && (
+          <p className={`mt-3 text-sm ${
+            passkeyMsg.includes('updated') ? 'text-emerald-400' : 'text-niu-red'
+          }`}>
+            {passkeyMsg}
+          </p>
+        )}
+        {!connected && (
+          <p className="mt-3 text-xs text-text-muted">
+            Connect to your ESP32 via BLE to read or change the passkey.
+          </p>
+        )}
+        {connected && passkey !== passkeyInput && passkeyInput.length === 6 && (
+          <p className="mt-3 text-xs text-amber-400">
+            Current device passkey: {passkey} — unsaved changes
+          </p>
+        )}
       </div>
 
       {/* ESP32 Sketch */}

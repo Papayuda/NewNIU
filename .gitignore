@@ -10,13 +10,9 @@ __pycache__/
 
 # Capacitor native build artifacts
 frontend/ios/App/Pods/
-frontend/android/.gradle/
-frontend/android/app/build/
-frontend/android/build/
 *.xcworkspace
 *.xcuserdata/
 frontend/ios/App/App/public/
-frontend/android/app/src/main/assets/public/
 
 # React Native native build artifacts
 react-native-scooter-dashboard/android/.gradle/

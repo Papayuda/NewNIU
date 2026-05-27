@@ -1,9 +1,8 @@
 /**
- * BLE LED Controller — Cross-platform BLE service for FastLED ESP32 communication.
+ * BLE LED Controller — iOS BLE service for FastLED ESP32 communication.
  *
  * Uses @capacitor-community/bluetooth-le which supports:
  *   - iOS (CoreBluetooth)
- *   - Android (native BLE)
  *   - Web (Web Bluetooth API fallback for Chrome/Edge)
  *
  * GATT Service UUID: 0000ff00-0000-1000-8000-00805f9b34fb
@@ -103,7 +102,7 @@ class BLELedController {
 
   async connect(): Promise<void> {
     if (!this.initialized) {
-      await BleClient.initialize({ androidNeverForLocation: true });
+      await BleClient.initialize();
       this.initialized = true;
     }
 

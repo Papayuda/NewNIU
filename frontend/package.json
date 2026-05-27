@@ -8,11 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "cap:sync": "cap sync",
-    "cap:build:ios": "tsc -b && vite build && cap sync ios",
-    "cap:build:android": "tsc -b && vite build && cap sync android",
-    "cap:open:ios": "cap open ios",
-    "cap:open:android": "cap open android"
+    "cap:sync": "cap sync ios",
+    "cap:build": "tsc -b && vite build && cap sync ios",
+    "cap:open": "cap open ios"
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^8.1.3",
@@ -30,7 +28,6 @@
     "tailwindcss": "^4.3.0"
   },
   "devDependencies": {
-    "@capacitor/android": "^8.3.4",
     "@capacitor/cli": "^8.3.4",
     "@capacitor/ios": "^8.3.4",
     "@eslint/js": "^10.0.1",
@@ -38,6 +35,7 @@
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/web-bluetooth": "^0.0.21",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",

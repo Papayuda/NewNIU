@@ -11,7 +11,7 @@ const ACCOUNT_BASE = 'https://account-fk.niu.com';
 const APP_API_BASE = 'https://app-api-fk.niu.com';
 
 const USER_AGENT =
-  'manager/4.6.48 (android; IN2025 11);lang=en-US;clientIdentifier=Domestic;sessionTopic=';
+  'manager/4.6.48 (iPhone; iOS 17.0);lang=en-US;clientIdentifier=Domestic;sessionTopic=';
 const ACCEPT_LANGUAGE = 'en-US';
 
 const PREF_TOKEN = 'niu_token';

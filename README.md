@@ -1,10 +1,9 @@
 # NIU Controller
 
-A mobile app for controlling and monitoring NIU electric vehicles (NQi, MQi, UQi, KQi series) with BLE ambient lighting control.
+An iOS app for controlling and monitoring NIU electric vehicles (NQi, MQi, UQi, KQi series) with BLE ambient lighting control.
 
 ![NIU Controller](https://img.shields.io/badge/NIU-Controller-e63946?style=for-the-badge)
 ![iOS](https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=apple&logoColor=white)
-![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 
 ## Features
 
@@ -27,7 +26,7 @@ A mobile app for controlling and monitoring NIU electric vehicles (NQi, MQi, UQi
 ```
 ┌─────────────────┐                    ┌─────────────────┐
 │   Capacitor App  │ ──── HTTPS ────▶  │  NIU Cloud API  │
-│   (iOS/Android)  │                   │  (niu.com)       │
+│   (iOS)          │                   │  (niu.com)       │
 │   React + TS     │                   └─────────────────┘
 │   Tailwind CSS   │
 │                  │ ──── BLE ───────▶ ┌─────────────────┐
@@ -36,9 +35,9 @@ A mobile app for controlling and monitoring NIU electric vehicles (NQi, MQi, UQi
                                       └─────────────────┘
 ```
 
-- **App**: React 19 + TypeScript + Vite + Tailwind CSS v4 + Capacitor
+- **App**: React 19 + TypeScript + Vite + Tailwind CSS v4 + Capacitor (iOS)
 - **NIU API**: Direct HTTPS calls from device (no backend server needed)
-- **BLE**: `@capacitor-community/bluetooth-le` for cross-platform Bluetooth
+- **BLE**: `@capacitor-community/bluetooth-le` for native iOS Bluetooth
 - **Storage**: `@capacitor/preferences` for on-device credential storage
 - **Maps**: Leaflet with CartoDB dark tiles
 - **Charts**: Recharts for battery usage visualization
@@ -49,7 +48,6 @@ A mobile app for controlling and monitoring NIU electric vehicles (NQi, MQi, UQi
 
 - Node.js 20+
 - Xcode 15+ (for iOS)
-- Android Studio (for Android)
 
 ### Install
 
@@ -61,17 +59,9 @@ npm install
 ### Build & Run on iOS
 
 ```bash
-npm run cap:build:ios
-npm run cap:open:ios
+npm run cap:build
+npm run cap:open
 # Build and run in Xcode
-```
-
-### Build & Run on Android
-
-```bash
-npm run cap:build:android
-npm run cap:open:android
-# Build and run in Android Studio
 ```
 
 ### Development (Web Preview)
@@ -102,10 +92,11 @@ The `esp32/niu_led_ble.ino` sketch runs on an ESP32 with WS2812B LED strips.
 | `0xFF04` | Speed | 1 byte (0–255) |
 | `0xFF05` | Power | 1 byte (0/1) |
 | `0xFF06` | Zones | 1 byte bitmask |
+| `0xFF07` | Passkey | 4 bytes uint32 LE (100000–999999) |
 
 ### Pairing
 
-Default passkey: `123456` (encrypted BLE bonding with AES-CCM).
+Default passkey: `123456` (user-configurable via app, encrypted BLE bonding with AES-CCM). Passkey is stored in ESP32 NVS and persists across reboots.
 
 ## Supported NIU Products
 

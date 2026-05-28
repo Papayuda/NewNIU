@@ -16,7 +16,6 @@ const ACCEPT_LANGUAGE = 'en-US';
 
 const PREF_TOKEN = 'niu_token';
 const PREF_ACCOUNT = 'niu_account';
-const PREF_PASSWORD = 'niu_password';
 const PREF_COUNTRY = 'niu_country_code';
 const PREF_CRED_VERSION = 'niu_cred_version';
 const CRED_VERSION_HASHED = '2';
@@ -131,7 +130,7 @@ async function isLoggedIn(): Promise<boolean> {
   return !!token;
 }
 
-// ── Credential storage ──
+// ── Credential storage (hashed — plaintext passwords are never persisted) ──
 
 async function saveCredentials(
   account: string,

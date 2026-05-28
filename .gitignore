@@ -1,6 +1,10 @@
 node_modules/
 dist/
 .env
+.env.*
+*.keystore
+*.jks
+keystore.properties
 *.pyc
 __pycache__/
 *.egg-info/

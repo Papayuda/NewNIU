@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException
@@ -16,12 +17,14 @@ app = FastAPI(
     version="2.0.0",
 )
 
+_allowed_origins = os.environ.get("CORS_ORIGINS", "capacitor://localhost,http://localhost").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -81,8 +84,8 @@ async def login(req: LoginRequest) -> dict[str, Any]:
             country_code=req.country_code,
         )
         return {"success": True, "data": token_data}
-    except Exception as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except Exception:
+        raise HTTPException(status_code=401, detail="Authentication failed")
 
 
 # ── Vehicles ──
@@ -93,8 +96,8 @@ async def get_vehicles(authorization: str | None = Header(default=None)) -> dict
     try:
         vehicles = await niu_api.get_vehicles(token)
         return {"success": True, "data": vehicles}
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream API error")
 
 
 @app.post("/api/vehicle/detail")
@@ -106,8 +109,8 @@ async def get_vehicle_detail(
     try:
         detail = await niu_api.get_vehicle_detail(token, req.sn)
         return {"success": True, "data": detail}
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream API error")
 
 
 @app.post("/api/vehicle/position")
@@ -119,8 +122,8 @@ async def get_vehicle_position(
     try:
         pos = await niu_api.get_vehicle_pos(token, req.sn)
         return {"success": True, "data": pos}
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream API error")
 
 
 @app.post("/api/vehicle/tally")
@@ -132,8 +135,8 @@ async def get_overall_tally(
     try:
         tally = await niu_api.get_overall_tally(token, req.sn)
         return {"success": True, "data": tally}
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream API error")
 
 
 # ── Battery ──
@@ -147,8 +150,8 @@ async def get_battery_info(
     try:
         info = await niu_api.get_battery_info(token, req.sn)
         return {"success": True, "data": info}
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream API error")
 
 
 @app.post("/api/vehicle/battery/health")
@@ -160,8 +163,8 @@ async def get_battery_health(
     try:
         health = await niu_api.get_battery_health(token, req.sn)
         return {"success": True, "data": health}
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream API error")
 
 
 @app.post("/api/vehicle/battery/chart")
@@ -175,8 +178,8 @@ async def get_battery_chart(
             token, req.sn, req.bms_id, req.page, req.page_size, req.page_length,
         )
         return {"success": True, "data": chart}
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream API error")
 
 
 # ── Motor ──
@@ -190,8 +193,8 @@ async def get_motor_info(
     try:
         motor = await niu_api.get_motor_info(token, req.sn)
         return {"success": True, "data": motor}
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream API error")
 
 
 # ── Tracks ──
@@ -205,8 +208,8 @@ async def get_tracks(
     try:
         tracks = await niu_api.get_tracks(token, req.sn, req.page, req.page_size)
         return {"success": True, "data": tracks}
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream API error")
 
 
 @app.post("/api/vehicle/track/detail")
@@ -218,8 +221,8 @@ async def get_track_detail(
     try:
         detail = await niu_api.get_track_detail(token, req.sn, req.track_id, req.date)
         return {"success": True, "data": detail}
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream API error")
 
 
 # ── Firmware ──
@@ -233,8 +236,8 @@ async def get_firmware_version(
     try:
         firmware = await niu_api.get_firmware_version(token, req.sn)
         return {"success": True, "data": firmware}
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream API error")
 
 
 @app.post("/api/vehicle/update-info")
@@ -246,6 +249,6 @@ async def get_update_info(
     try:
         update = await niu_api.get_update_info(token, req.sn)
         return {"success": True, "data": update}
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream API error")
 

@@ -653,6 +653,8 @@ class PasskeyCallback : public BLECharacteristicCallbacks {
   }
 };
 
+static BLEServer* g_pServer = nullptr;
+
 // --- Security (encrypted bonding with MITM protection) ---
 class SecurityCallback : public BLESecurityCallbacks {
   uint32_t onPassKeyRequest() { return currentPasskey; }
@@ -665,7 +667,10 @@ class SecurityCallback : public BLESecurityCallbacks {
     if (auth.success) {
       Serial.println("BLE authentication success (encrypted + bonded)");
     } else {
-      Serial.println("BLE authentication failed");
+      Serial.println("BLE authentication failed — disconnecting client");
+      if (g_pServer != nullptr) {
+        g_pServer->disconnect(g_pServer->getConnId());
+      }
     }
   }
 };
@@ -801,6 +806,7 @@ void setup() {
     &currentPasskey, sizeof(uint32_t));
 
   BLEServer* server = BLEDevice::createServer();
+  g_pServer = server;
   server->setCallbacks(new ServerCallbacks());
 
   BLEService* svc = server->createService(SERVICE_UUID);

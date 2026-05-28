@@ -2,16 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-<<<<<<< Updated upstream
-        <string>NIU Controller</string>
-=======
-        <string>NewNiu</string>
->>>>>>> Stashed changes
+	<string>NIU Controller</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -51,12 +47,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-<<<<<<< Updated upstream
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>NIU Controller uses Bluetooth to communicate with your ESP32 LED controller for ambient lighting control.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>NIU Controller uses Bluetooth to communicate with your ESP32 LED controller for ambient lighting control.</string>
-=======
->>>>>>> Stashed changes
 </dict>
 </plist>

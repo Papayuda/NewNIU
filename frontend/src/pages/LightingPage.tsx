@@ -478,6 +478,18 @@ const ESP32_SKETCH = `/*
  *   0xFF04 — Speed (1 byte: 0-255)
  *   0xFF05 — Power (1 byte: 0/1)
  *   0xFF06 — Zones (1 byte: bitmask)
+ *   0xFF07 — Passkey (4 bytes: uint32 LE, 100000-999999)
+ *
+ * Wiring:
+ *   ESP32 GPIO5 -> WS2812B Data In
+ *   ESP32 GND   -> WS2812B GND
+ *   5V supply   -> WS2812B VCC + ESP32 VIN
+ *
+ * Install via Arduino IDE:
+ *   1. Add ESP32 board support (https://dl.espressif.com/dl/package_esp32_index.json)
+ *   2. Install FastLED library from Library Manager
+ *   3. Select board: ESP32 Dev Module
+ *   4. Upload this sketch
  */
 
 #include <FastLED.h>
@@ -486,17 +498,19 @@ const ESP32_SKETCH = `/*
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include <BLESecurity.h>
+#include <Preferences.h>
 
-// ─── LED Configuration ───
-#define LED_PIN       5
-#define NUM_LEDS      60
-#define LED_TYPE      WS2812B
-#define COLOR_ORDER   GRB
+// --- LED Configuration ---
+// Adjust these for your setup:
+#define LED_PIN       5        // GPIO pin connected to LED data
+#define NUM_LEDS      60       // Number of LEDs in your strip
+#define LED_TYPE      WS2812B  // LED chipset (WS2812B, WS2811, APA102, etc.)
+#define COLOR_ORDER   GRB      // Color order (GRB for most WS2812B)
 #define MAX_BRIGHTNESS 255
 
 CRGB leds[NUM_LEDS];
 
-// ─── BLE UUIDs ───
+// --- BLE UUIDs ---
 #define SERVICE_UUID        "0000ff00-0000-1000-8000-00805f9b34fb"
 #define CHAR_COLOR_UUID     "0000ff01-0000-1000-8000-00805f9b34fb"
 #define CHAR_EFFECT_UUID    "0000ff02-0000-1000-8000-00805f9b34fb"
@@ -504,8 +518,9 @@ CRGB leds[NUM_LEDS];
 #define CHAR_SPEED_UUID     "0000ff04-0000-1000-8000-00805f9b34fb"
 #define CHAR_POWER_UUID     "0000ff05-0000-1000-8000-00805f9b34fb"
 #define CHAR_ZONES_UUID     "0000ff06-0000-1000-8000-00805f9b34fb"
+#define CHAR_PASSKEY_UUID   "0000ff07-0000-1000-8000-00805f9b34fb"
 
-// ─── State ───
+// --- State ---
 uint8_t currentR = 255, currentG = 0, currentB = 0;
 uint8_t currentEffect = 0;
 uint8_t currentBrightness = 128;
@@ -515,10 +530,34 @@ uint8_t currentZones = 0x01;
 bool    deviceConnected = false;
 uint8_t hueOffset = 0;
 
-// ─── BLE Callbacks ───
+// --- Passkey (stored in NVS, user-configurable) ---
+Preferences prefs;
+uint32_t currentPasskey = 123456;  // default
+
+void loadPasskey() {
+  prefs.begin("ble", true);
+  currentPasskey = prefs.getUInt("passkey", 123456);
+  prefs.end();
+}
+
+void savePasskey(uint32_t pk) {
+  currentPasskey = pk;
+  prefs.begin("ble", false);
+  prefs.putUInt("passkey", pk);
+  prefs.end();
+}
+
+// --- BLE Callbacks ---
 class ServerCallbacks : public BLEServerCallbacks {
-  void onConnect(BLEServer* s)    { deviceConnected = true;  }
-  void onDisconnect(BLEServer* s) { deviceConnected = false; }
+  void onConnect(BLEServer* s) {
+    deviceConnected = true;
+    Serial.println("BLE client connected");
+  }
+  void onDisconnect(BLEServer* s) {
+    deviceConnected = false;
+    Serial.println("BLE client disconnected");
+    BLEDevice::startAdvertising();
+  }
 };
 
 class ColorCallback : public BLECharacteristicCallbacks {
@@ -526,13 +565,17 @@ class ColorCallback : public BLECharacteristicCallbacks {
     uint8_t* d = c->getData();
     if (c->getLength() >= 3) {
       currentR = d[0]; currentG = d[1]; currentB = d[2];
+      Serial.printf("Color: #%02x%02x%02x\\n", currentR, currentG, currentB);
     }
   }
 };
 
 class EffectCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* c) {
-    if (c->getLength() >= 1) currentEffect = c->getData()[0];
+    if (c->getLength() >= 1) {
+      currentEffect = c->getData()[0];
+      Serial.printf("Effect: %d\\n", currentEffect);
+    }
   }
 };
 
@@ -541,44 +584,101 @@ class BrightCallback : public BLECharacteristicCallbacks {
     if (c->getLength() >= 1) {
       currentBrightness = c->getData()[0];
       FastLED.setBrightness(currentBrightness);
+      Serial.printf("Brightness: %d\\n", currentBrightness);
     }
   }
 };
 
 class SpeedCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* c) {
-    if (c->getLength() >= 1) currentSpeed = c->getData()[0];
+    if (c->getLength() >= 1) {
+      currentSpeed = c->getData()[0];
+      Serial.printf("Speed: %d\\n", currentSpeed);
+    }
   }
 };
 
 class PowerCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* c) {
-    if (c->getLength() >= 1) currentPower = c->getData()[0] == 1;
+    if (c->getLength() >= 1) {
+      currentPower = c->getData()[0] == 1;
+      Serial.printf("Power: %s\\n", currentPower ? "ON" : "OFF");
+    }
   }
 };
 
 class ZonesCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* c) {
-    if (c->getLength() >= 1) currentZones = c->getData()[0];
+    if (c->getLength() >= 1) {
+      currentZones = c->getData()[0];
+      Serial.printf("Zones: 0x%02x\\n", currentZones);
+    }
   }
 };
 
-// ─── Security (encrypted bonding) ───
-class SecurityCallback : public BLESecurityCallbacks {
-  uint32_t onPassKeyRequest() { return 123456; }
-  void onPassKeyNotify(uint32_t passkey) {}
-  bool onConfirmPIN(uint32_t pin) { return true; }
-  bool onSecurityRequest() { return true; }
-  void onAuthenticationComplete(esp_ble_auth_cmpl_t auth) {}
+// --- Passkey Characteristic ---
+class PasskeyCallback : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* c) {
+    if (c->getLength() >= 4) {
+      uint8_t* d = c->getData();
+      uint32_t newKey = d[0] | (d[1] << 8) | (d[2] << 16) | (d[3] << 24);
+      if (newKey >= 100000 && newKey <= 999999) {
+        savePasskey(newKey);
+        esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY,
+          &currentPasskey, sizeof(uint32_t));
+        // Clear existing bonds so new passkey takes effect
+        int count = esp_ble_get_bond_device_num();
+        if (count > 0) {
+          esp_ble_bond_dev_t* devs = (esp_ble_bond_dev_t*)malloc(
+            count * sizeof(esp_ble_bond_dev_t));
+          if (devs) {
+            esp_ble_get_bond_device_list(&count, devs);
+            for (int i = 0; i < count; i++) {
+              esp_ble_remove_bond_device(devs[i].bd_addr);
+            }
+            free(devs);
+          }
+        }
+        Serial.printf("Passkey updated to: %u (re-pair required)\\n", newKey);
+      }
+    }
+  }
+  void onRead(BLECharacteristic* c) {
+    uint8_t buf[4];
+    buf[0] = currentPasskey & 0xFF;
+    buf[1] = (currentPasskey >> 8) & 0xFF;
+    buf[2] = (currentPasskey >> 16) & 0xFF;
+    buf[3] = (currentPasskey >> 24) & 0xFF;
+    c->setValue(buf, 4);
+  }
 };
 
-// ─── Effects ───
+// --- Security (encrypted bonding with MITM protection) ---
+class SecurityCallback : public BLESecurityCallbacks {
+  uint32_t onPassKeyRequest() { return currentPasskey; }
+  void onPassKeyNotify(uint32_t passkey) {
+    Serial.printf("Passkey: %d\\n", passkey);
+  }
+  bool onConfirmPIN(uint32_t pin) { return true; }
+  bool onSecurityRequest() { return true; }
+  void onAuthenticationComplete(esp_ble_auth_cmpl_t auth) {
+    if (auth.success) {
+      Serial.println("BLE authentication success (encrypted + bonded)");
+    } else {
+      Serial.println("BLE authentication failed");
+    }
+  }
+};
+
+// --- LED Effects ---
+
 void effectSolid() {
   fill_solid(leds, NUM_LEDS, CRGB(currentR, currentG, currentB));
 }
 
 void effectBreathing() {
-  uint8_t breath = beatsin8(60000 / max((int)currentSpeed * 40, 1), 20, 255);
+  uint8_t bpm = max(10, currentSpeed / 5);
+  uint8_t breath = beatsin8(bpm, 20, 255);
   fill_solid(leds, NUM_LEDS, CRGB(currentR, currentG, currentB));
   fadeToBlackBy(leds, NUM_LEDS, 255 - breath);
 }
@@ -595,7 +695,7 @@ void effectColorCycle() {
 }
 
 void effectStrobe() {
-  EVERY_N_MILLISECONDS(max(20, 255 - currentSpeed)) {
+  EVERY_N_MILLISECONDS(max(20, 255 - (int)currentSpeed)) {
     static bool on = false;
     on = !on;
     if (on) fill_solid(leds, NUM_LEDS, CRGB(currentR, currentG, currentB));
@@ -614,7 +714,7 @@ void effectFire() {
 void effectMeteor() {
   static int pos = 0;
   fadeToBlackBy(leds, NUM_LEDS, 64);
-  int meteorSize = 4;
+  int meteorSize = max(2, NUM_LEDS / 15);
   for (int j = 0; j < meteorSize; j++) {
     int idx = (pos - j + NUM_LEDS) % NUM_LEDS;
     leds[idx] = CRGB(currentR, currentG, currentB);
@@ -648,18 +748,20 @@ void effectChase() {
       ? CRGB(currentR, currentG, currentB)
       : CRGB::Black;
   }
-  EVERY_N_MILLISECONDS(max(30, 255 - currentSpeed)) { offset++; }
+  EVERY_N_MILLISECONDS(max(30, 255 - (int)currentSpeed)) { offset++; }
 }
 
 typedef void (*EffectFunc)();
-EffectFunc effects[] = {
+const int NUM_EFFECTS = 10;
+EffectFunc effects[NUM_EFFECTS] = {
   effectSolid, effectBreathing, effectRainbow, effectColorCycle,
   effectStrobe, effectFire, effectMeteor, effectWave,
   effectTwinkle, effectChase
 };
 
+// --- Helper: create encrypted R/W characteristic ---
 BLECharacteristic* createChar(BLEService* svc, const char* uuid,
-  BLECharacteristicCallbacks* cb) {
+    BLECharacteristicCallbacks* cb) {
   BLECharacteristic* c = svc->createCharacteristic(uuid,
     BLECharacteristic::PROPERTY_READ |
     BLECharacteristic::PROPERTY_WRITE);
@@ -671,47 +773,88 @@ BLECharacteristic* createChar(BLEService* svc, const char* uuid,
 
 void setup() {
   Serial.begin(115200);
-  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  Serial.println("NIU LED Controller starting...");
+
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS)
+    .setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(currentBrightness);
   FastLED.clear();
   FastLED.show();
 
-  // BLE Init with encryption
+  // Load user-configured passkey from NVS (default: 123456)
+  loadPasskey();
+  Serial.printf("Passkey: %u\\n", currentPasskey);
+
+  // Initialize BLE with encryption
   BLEDevice::init("NIU-LED");
   BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_MITM);
   BLEDevice::setSecurityCallbacks(new SecurityCallback());
 
   BLESecurity* security = new BLESecurity();
   security->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
-  security->setCapability(ESP_IO_CAP_NONE);
+  security->setCapability(ESP_IO_CAP_OUT);
   security->setInitEncryptionKey(
     ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+
+  // Set static passkey from NVS
+  esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY,
+    &currentPasskey, sizeof(uint32_t));
 
   BLEServer* server = BLEDevice::createServer();
   server->setCallbacks(new ServerCallbacks());
 
   BLEService* svc = server->createService(SERVICE_UUID);
-  createChar(svc, CHAR_COLOR_UUID,  new ColorCallback());
-  createChar(svc, CHAR_EFFECT_UUID, new EffectCallback());
-  createChar(svc, CHAR_BRIGHT_UUID, new BrightCallback());
-  createChar(svc, CHAR_SPEED_UUID,  new SpeedCallback());
-  createChar(svc, CHAR_POWER_UUID,  new PowerCallback());
-  createChar(svc, CHAR_ZONES_UUID,  new ZonesCallback());
+
+  // Create characteristics with encrypted access
+  BLECharacteristic* colorChar = createChar(svc, CHAR_COLOR_UUID, new ColorCallback());
+  uint8_t initColor[] = {currentR, currentG, currentB};
+  colorChar->setValue(initColor, 3);
+
+  BLECharacteristic* effectChar = createChar(svc, CHAR_EFFECT_UUID, new EffectCallback());
+  effectChar->setValue(&currentEffect, 1);
+
+  BLECharacteristic* brightChar = createChar(svc, CHAR_BRIGHT_UUID, new BrightCallback());
+  brightChar->setValue(&currentBrightness, 1);
+
+  BLECharacteristic* speedChar = createChar(svc, CHAR_SPEED_UUID, new SpeedCallback());
+  speedChar->setValue(&currentSpeed, 1);
+
+  uint8_t powerVal = currentPower ? 1 : 0;
+  BLECharacteristic* powerChar = createChar(svc, CHAR_POWER_UUID, new PowerCallback());
+  powerChar->setValue(&powerVal, 1);
+
+  BLECharacteristic* zoneChar = createChar(svc, CHAR_ZONES_UUID, new ZonesCallback());
+  zoneChar->setValue(&currentZones, 1);
+
+  // Passkey characteristic -- lets the app read/update the BLE pairing passkey
+  BLECharacteristic* passkeyChar = createChar(svc, CHAR_PASSKEY_UUID, new PasskeyCallback());
+  uint8_t pkBuf[4] = {
+    (uint8_t)(currentPasskey & 0xFF),
+    (uint8_t)((currentPasskey >> 8) & 0xFF),
+    (uint8_t)((currentPasskey >> 16) & 0xFF),
+    (uint8_t)((currentPasskey >> 24) & 0xFF)
+  };
+  passkeyChar->setValue(pkBuf, 4);
 
   svc->start();
+
   BLEAdvertising* adv = BLEDevice::getAdvertising();
   adv->addServiceUUID(SERVICE_UUID);
   adv->setScanResponse(true);
+  adv->setMinPreferred(0x06);
+  adv->setMaxPreferred(0x12);
   BLEDevice::startAdvertising();
-  Serial.println("NIU-LED BLE ready (encrypted)");
+
+  Serial.println("NIU-LED BLE ready (encrypted + bonded pairing)");
+  Serial.printf("LEDs: %d on GPIO%d\\n", NUM_LEDS, LED_PIN);
 }
 
 void loop() {
-  if (currentPower && currentEffect < 10) {
+  if (currentPower && currentEffect < NUM_EFFECTS) {
     effects[currentEffect]();
   } else if (!currentPower) {
     FastLED.clear();
   }
   FastLED.show();
-  delay(max(5, 30 - currentSpeed / 10));
+  delay(max(5, 30 - (int)currentSpeed / 10));
 }`;

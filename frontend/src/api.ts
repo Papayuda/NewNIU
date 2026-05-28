@@ -285,10 +285,6 @@ export async function getVehicles(): Promise<unknown[]> {
   return json?.data ?? [];
 }
 
-export async function getVehicleDetail(sn: string): Promise<Record<string, unknown>> {
-  return niuPostForm('/motoinfo/overallTally', { sn });
-}
-
 export async function getVehiclePosition(sn: string): Promise<Record<string, unknown>> {
   return niuGet(`/v3/motor_data/index_info?sn=${sn}`);
 }

@@ -21,9 +21,14 @@ export default function MotorPage() {
 
   useEffect(() => {
     (async () => {
-      const v = (await getVehicles()) as { sn: string }[];
-      if (v.length > 0) setSn(v[0].sn);
-      setLoading(false);
+      try {
+        const v = (await getVehicles()) as { sn: string }[];
+        if (v.length > 0) setSn(v[0].sn);
+      } catch {
+        /* handled by api layer */
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 

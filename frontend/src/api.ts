@@ -16,6 +16,7 @@ const ACCEPT_LANGUAGE = 'en-US';
 
 const PREF_TOKEN = 'niu_token';
 const PREF_ACCOUNT = 'niu_account';
+const PREF_PASSWORD = 'niu_password';
 const PREF_COUNTRY = 'niu_country_code';
 const PREF_CRED_VERSION = 'niu_cred_version';
 const CRED_VERSION_HASHED = '2';
@@ -126,6 +127,8 @@ async function clearToken(): Promise<void> {
 }
 
 async function isLoggedIn(): Promise<boolean> {
+  // Purge any legacy plaintext password left by older versions
+  await Preferences.remove({ key: 'niu_password' });
   const token = await getToken();
   return !!token;
 }

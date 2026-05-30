@@ -2,25 +2,25 @@
  * NIU Controller — FastLED BLE Ambient Lighting
  *
  * Hardware: ESP32 + WS2812B LED strip
- * Dependencies: FastLED, ESP32 BLE Arduino
+ * Dependencies: FastLED, ESsssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssaasz¯ ssssssaasz¯ ssssssaasz¯ ssssssaasz¯ ssssssaasz¯ ssssssaasz¯ ssssssaasz¯ ssssssaasz¯ ssssssaasz¯ ssssssaasz¯ ssssssaasz¯ ssssssaasz¯ ssssssaasz¯ ssssssaasz¯  BLE Aaasz¯ 
  *
- * BLE Service: 0xFF00 (encrypted, bonded pairing)
- * Characteristics:
- *   0xFF01 — Color (3 bytes: R, G, B)
- *   0xFF02 — Effect (1 byte: 0-9)
- *   0xFF03 — Brightness (1 byte: 0-255)
- *   0xFF04 — Speed (1 byte: 0-255)
- *   0xFF05 — Power (1 byte: 0/1)
- *   0xFF06 — Zones (1 byte: bitmask)
- *   0xFF07 — Passkey (4 bytes: uint32 LE, 100000-999999)
+ * BLE Seraasz¯  0xFF0aasz¯  (encraasz¯  bondeaasz¯  pairiaasz¯ 
+ * Charaaasz¯ ics:
+ *   0xFF0aasz¯  Coloraasz¯  bytesaasz¯  B)
+ *   0xFF0aasz¯  Effecaasz¯  byte:aasz¯ 
+ *   0xFF0aasz¯  Brighaasz¯  (1 byaasz¯  0-255aasz¯ 
+ *   0xFF0aasz¯  Speedaasz¯  byte:aasz¯ 
+ *   0xFF0aasz¯  Poweraasz¯  byte:aasz¯ 
+ *   0xFF0aasz¯  Zonesaasz¯  byte: bitmaaasz¯ 
+ *   0xFF0aasz¯  Passkaasz¯  bytesaasz¯  uint3aasz¯  10000aasz¯ 9)
  *
  * Wiring:
- *   ESP32 GPIO5 → WS2812B Data In
- *   ESP32 GND   → WS2812B GND
- *   5V supply   → WS2812B VCC + ESP32 VIN
+ *   ESP32aasz¯  → WS2aasz¯  Data aasz¯ 
+ *   ESP32aasz¯  → WS2aasz¯ 
+ *   5V suaasz¯  → WS2aasz¯  VCC +aasz¯  VIN
  *
- * Install via Arduino IDE:
- *   1. Add ESP32 board support (https://dl.espressif.com/dl/package_esp32_index.json)
+ * Installaasz¯  Arduiaasz¯ 
+ *   1. Adaasz¯  board suppoaasz¯  (httpaasz¯ l.espraasz¯ f.com/dl/package_esp32_index.json)
  *   2. Install FastLED library from Library Manager
  *   3. Select board: ESP32 Dev Module
  *   4. Upload this sketch

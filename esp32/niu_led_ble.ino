@@ -187,10 +187,12 @@ class PasskeyCallback : public BLECharacteristicCallbacks {
   }
 };
 
+static BLEServer* g_pServer = nullptr;
+
 class SecurityCallback : public BLESecurityCallbacks {
   uint32_t onPassKeyRequest() { return currentPasskey; }
   void onPassKeyNotify(uint32_t passkey) {
-    Serial.printf("Passkey: %d\n", passkey);
+    Serial.printf("Passkey to enter on peer: %06d\n", passkey);
   }
   bool onConfirmPIN(uint32_t pin) { return true; }
   bool onSecurityRequest() { return true; }
@@ -198,7 +200,10 @@ class SecurityCallback : public BLESecurityCallbacks {
     if (auth.success) {
       Serial.println("BLE authentication success (encrypted + bonded)");
     } else {
-      Serial.println("BLE authentication failed");
+      Serial.println("BLE authentication failed — disconnecting client");
+      if (g_pServer != nullptr) {
+        g_pServer->disconnect(g_pServer->getConnId());
+      }
     }
   }
 };
@@ -335,6 +340,7 @@ void setup() {
     &currentPasskey, sizeof(uint32_t));
 
   BLEServer* server = BLEDevice::createServer();
+  g_pServer = server;
   server->setCallbacks(new ServerCallbacks());
 
   BLEService* svc = server->createService(SERVICE_UUID);

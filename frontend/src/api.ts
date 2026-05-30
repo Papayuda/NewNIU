@@ -127,11 +127,13 @@ async function clearToken(): Promise<void> {
 }
 
 async function isLoggedIn(): Promise<boolean> {
+  // Purge any legacy plaintext password left by older versions
+  await Preferences.remove({ key: 'niu_password' });
   const token = await getToken();
   return !!token;
 }
 
-// ── Credential storage ──
+// ── Credential storage (hashed — plaintext passwords are never persisted) ──
 
 async function saveCredentials(
   account: string,

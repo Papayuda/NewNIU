@@ -39,7 +39,6 @@ export default function LoginPage() {
     getSavedCredentials().then((creds) => {
       if (creds) {
         setAccount(creds.account);
-        setPassword(creds.password);
         setCountryCode(creds.countryCode);
         setSavedHash(creds.isHashed);
         if (creds.isHashed) storedHashRef.current = creds.password;

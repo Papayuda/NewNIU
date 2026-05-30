@@ -128,7 +128,10 @@ async function clearToken(): Promise<void> {
 
 async function isLoggedIn(): Promise<boolean> {
   // Purge any legacy plaintext password left by older versions
-  await Preferences.remove({ key: 'niu_password' });
+  const { value: credVer } = await Preferences.get({ key: PREF_CRED_VERSION });
+  if (credVer !== CRED_VERSION_HASHED) {
+    await Preferences.remove({ key: PREF_PASSWORD });
+  }
   const token = await getToken();
   return !!token;
 }

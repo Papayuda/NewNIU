@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { login, getSavedCredentials } from '../api';
+// getSavedCredentials returns only { account, countryCode } — passwords are never stored
 import { useAuth } from '../context/AuthContext';
 
 const COUNTRY_CODES = [
@@ -30,18 +31,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [savedHash, setSavedHash] = useState(false);
-  const storedHashRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const { setAuthenticated } = useAuth();
 
   useEffect(() => {
-    getSavedCredentials().then((creds) => {
-      if (creds) {
-        setAccount(creds.account);
-        setCountryCode(creds.countryCode);
-        setSavedHash(creds.isHashed);
-        if (creds.isHashed) storedHashRef.current = creds.password;
+    getSavedCredentials().then((info) => {
+      if (info) {
+        setAccount(info.account);
+        setCountryCode(info.countryCode);
       }
     });
   }, []);
@@ -51,8 +48,7 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      const isPreHashed = savedHash || (storedHashRef.current !== null && password === storedHashRef.current);
-      await login(account, password, countryCode, isPreHashed);
+      await login(account, password, countryCode);
       setAuthenticated(true);
       navigate('/');
     } catch (err) {
@@ -125,7 +121,7 @@ export default function LoginPage() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => { setPassword(e.target.value); setSavedHash(false); }}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   required
                   className="w-full bg-dark-700 border border-dark-500 rounded-xl px-4 py-3 pr-12 text-text-primary placeholder-text-muted focus:outline-none focus:border-niu-cyan transition-colors"
@@ -157,7 +153,7 @@ export default function LoginPage() {
           </button>
 
           <p className="text-center text-text-muted text-xs mt-6">
-            Credentials are stored locally on this device. Data is sent directly to NIU servers.
+            Only your auth token is stored locally. Data is sent directly to NIU servers.
           </p>
         </form>
       </div>

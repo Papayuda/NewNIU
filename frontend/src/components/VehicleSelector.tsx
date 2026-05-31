@@ -3,10 +3,11 @@ import { ChevronDown } from 'lucide-react';
 interface Vehicle {
   sn: string;
   name?: string;
-  type?: string;
+  type?: number | string;
   vehicleTypeId?: string;
   frameno?: string;
   frameNo?: string;
+  [key: string]: unknown;
 }
 
 interface VehicleSelectorProps {

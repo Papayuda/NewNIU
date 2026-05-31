@@ -20,7 +20,7 @@ import { getVehicles, getOverallTally, getBatteryInfo, getMotorInfo } from '../a
 interface VehicleData {
   sn: string;
   name?: string;
-  type?: string;
+  type?: number | string;
   vehicleTypeId?: string;
   frameno?: string;
   frameNo?: string;

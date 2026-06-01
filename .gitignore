@@ -34,3 +34,6 @@ test-report*.md
 
 # IDE
 .idea/
+
+# macOS
+.DS_Store

@@ -34,3 +34,5 @@ test-report*.md
 
 # IDE
 .idea/
+.DS_Store
+.DS_Store

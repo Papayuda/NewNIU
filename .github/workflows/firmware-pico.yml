@@ -1,0 +1,44 @@
+name: Pico 2 W firmware build
+
+# Compile-checks pico/niu_led_ble.ino for the Raspberry Pi Pico 2 W on every PR
+# that touches the firmware, using the same toolchain verified locally.
+
+on:
+  pull_request:
+    paths:
+      - 'pico/**'
+      - '.github/workflows/firmware-pico.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'pico/**'
+      - '.github/workflows/firmware-pico.yml'
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: arduino/setup-arduino-cli@v2
+
+      - name: Install RP2350 core and FastLED
+        run: |
+          arduino-cli config init
+          arduino-cli config set board_manager.additional_urls \
+            https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
+          arduino-cli core update-index
+          # Pinned to the versions verified to build this sketch.
+          arduino-cli core install rp2040:rp2040@5.6.0
+          arduino-cli lib install FastLED@3.10.3
+
+      - name: Compile pico/niu_led_ble.ino
+        run: |
+          # Arduino requires the sketch folder name to match the .ino file name,
+          # so copy it into a correctly-named folder before compiling.
+          mkdir -p build/niu_led_ble
+          cp pico/niu_led_ble.ino build/niu_led_ble/
+          arduino-cli compile \
+            --fqbn rp2040:rp2040:rpipico2w:ipbtstack=ipv4btcble \
+            --warnings default \
+            build/niu_led_ble

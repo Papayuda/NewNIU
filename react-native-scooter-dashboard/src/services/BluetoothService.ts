@@ -178,7 +178,11 @@ export class BluetoothService {
     }
 
     this.setState({ isScanning: true, lastError: null });
-    await BleManager.scan([], SCAN_SECONDS, false);
+    await BleManager.scan({
+      serviceUUIDs: [],
+      seconds: SCAN_SECONDS,
+      allowDuplicates: false,
+    });
   }
 
   async connect(

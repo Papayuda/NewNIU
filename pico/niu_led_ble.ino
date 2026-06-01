@@ -131,6 +131,22 @@ BLECharacteristic powerChar  (BLEUUID((uint16_t)CHAR_POWER_UUID),   BLERead | BL
 BLECharacteristic zonesChar  (BLEUUID((uint16_t)CHAR_ZONES_UUID),   BLERead | BLEWrite, "Zones");
 BLECharacteristic passkeyChar(BLEUUID((uint16_t)CHAR_PASSKEY_UUID), BLERead | BLEWrite, "Passkey");
 
+// ─── BLE server callbacks ───
+// BTstack stops connectable advertising once a client connects and does not
+// auto-resume on disconnect, so (like the ESP32 build) we restart advertising
+// in onDisconnect — otherwise the device becomes unreachable after the first
+// client disconnects.
+class ServerCB : public BLEServerCallbacks {
+  void onConnect(BLEServer *s) override {
+    Serial.println("BLE client connected");
+  }
+  void onDisconnect(BLEServer *s) override {
+    Serial.println("BLE client disconnected, restarting advertising");
+    BLE.startAdvertising();
+  }
+};
+ServerCB serverCB;
+
 // ─── BLE write callbacks (run at interrupt level: keep them tiny) ───
 static void onColor(BLECharacteristic *c) {
   if (c->valueLen() >= 3) {
@@ -320,6 +336,7 @@ void setup() {
   svc.addCharacteristic(&zonesChar);
   svc.addCharacteristic(&passkeyChar);
   BLE.server()->addService(&svc);
+  BLE.server()->setCallbacks(&serverCB);  // restart advertising on disconnect
   BLE.startAdvertising();
 
   Serial.println("NIU-LED BLE ready (encrypted Just Works pairing)");

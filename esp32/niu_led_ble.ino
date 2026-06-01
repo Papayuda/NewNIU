@@ -64,13 +64,22 @@ uint8_t currentZones = 0x01; // bit0=underglow,bit1=dash,bit2=rear,bit3=front,bi
 bool    deviceConnected = false;
 uint8_t hueOffset = 0;
 
-// ─── Passkey (stored in NVS, user-configurable) ───
+// ─── Passkey (stored in NVS, user-configurable via BLE or DEFAULT_PASSKEY) ───
+//
+// IMPORTANT: Change DEFAULT_PASSKEY to a unique 6-digit number before flashing.
+// This value is used only on first boot; afterwards the passkey is stored in NVS
+// and can be updated over BLE via the Passkey characteristic (0xFF07).
+// Valid range: 100000–999999.
+#ifndef DEFAULT_PASSKEY
+#define DEFAULT_PASSKEY 100000
+#endif
+
 Preferences prefs;
-uint32_t currentPasskey = 123456;  // default
+uint32_t currentPasskey = DEFAULT_PASSKEY;
 
 void loadPasskey() {
   prefs.begin("ble", true);  // read-only
-  currentPasskey = prefs.getUInt("passkey", 123456);
+  currentPasskey = prefs.getUInt("passkey", DEFAULT_PASSKEY);
   prefs.end();
 }
 
@@ -320,7 +329,7 @@ void setup() {
   FastLED.clear();
   FastLED.show();
 
-  // Load user-configured passkey from NVS (default: 123456)
+  // Load user-configured passkey from NVS (see DEFAULT_PASSKEY)
   loadPasskey();
   Serial.printf("Passkey: %u\n", currentPasskey);
 

@@ -16,6 +16,7 @@ import VehicleSelector from '../components/VehicleSelector';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getVehicles, getOverallTally, getBatteryInfo, getMotorInfo } from '../api';
+import { usePolling, LIVE_REFRESH_INTERVAL_MS } from '../hooks/usePolling';
 
 interface VehicleData {
   sn: string;
@@ -78,6 +79,14 @@ export default function DashboardPage() {
     if (selectedSN) void loadVehicleData(selectedSN);
   }, [selectedSN, loadVehicleData]);
 
+  usePolling(
+    () => {
+      if (selectedSN) void loadVehicleData(selectedSN);
+    },
+    LIVE_REFRESH_INTERVAL_MS,
+    !!selectedSN,
+  );
+
   if (loading) return <LoadingSpinner message="Loading vehicles..." />;
 
   if (vehicles.length === 0) {
@@ -115,6 +124,13 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-4">
           <StatusBadge online={!!selectedVehicle?.isConnected} />
+          <span className="flex items-center gap-1.5 text-xs text-text-muted" title="Telemetry refreshes automatically">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-niu-cyan opacity-75 animate-ping" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-niu-cyan" />
+            </span>
+            Live
+          </span>
           <VehicleSelector
             vehicles={vehicles}
             selected={selectedSN}

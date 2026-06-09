@@ -20,6 +20,7 @@ import {
 import MetricTile from '../components/MetricTile';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getVehicles, getBatteryInfo, getBatteryHealth, getBatteryChart } from '../api';
+import { usePolling, LIVE_REFRESH_INTERVAL_MS } from '../hooks/usePolling';
 
 export default function BatteryPage() {
   const [sn, setSn] = useState('');
@@ -41,9 +42,9 @@ export default function BatteryPage() {
     })();
   }, []);
 
-  const loadData = useCallback(async (serial: string) => {
+  const loadData = useCallback(async (serial: string, silent = false) => {
     if (!serial) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const [i, h, c] = await Promise.all([
         getBatteryInfo(serial),
@@ -56,7 +57,7 @@ export default function BatteryPage() {
     } catch {
       /* handled */
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -64,6 +65,14 @@ export default function BatteryPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching
     if (sn) void loadData(sn);
   }, [sn, loadData]);
+
+  usePolling(
+    () => {
+      if (sn) void loadData(sn, true);
+    },
+    LIVE_REFRESH_INTERVAL_MS,
+    !!sn,
+  );
 
   if (loading) return <LoadingSpinner message="Loading battery data..." />;
 

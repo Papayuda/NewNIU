@@ -55,9 +55,9 @@ export default function DashboardPage() {
     })();
   }, []);
 
-  const loadVehicleData = useCallback(async (serial: string) => {
+  const loadVehicleData = useCallback(async (serial: string, silent = false) => {
     if (!serial) return;
-    setRefreshing(true);
+    if (!silent) setRefreshing(true);
     try {
       const [t, b, m] = await Promise.all([
         getOverallTally(serial),
@@ -70,7 +70,7 @@ export default function DashboardPage() {
     } catch {
       /* handled by api layer */
     } finally {
-      setRefreshing(false);
+      if (!silent) setRefreshing(false);
     }
   }, []);
 
@@ -81,7 +81,7 @@ export default function DashboardPage() {
 
   usePolling(
     () => {
-      if (selectedSN) void loadVehicleData(selectedSN);
+      if (selectedSN) void loadVehicleData(selectedSN, true);
     },
     LIVE_REFRESH_INTERVAL_MS,
     !!selectedSN,

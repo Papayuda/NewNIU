@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getVehicles, getVehiclePosition } from '../api';
+import { usePolling, LIVE_REFRESH_INTERVAL_MS } from '../hooks/usePolling';
 
 export default function LocationPage() {
   const [sn, setSn] = useState('');
@@ -40,6 +41,14 @@ export default function LocationPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching
     if (sn) void loadData(sn);
   }, [sn, loadData]);
+
+  usePolling(
+    () => {
+      if (sn) void loadData(sn);
+    },
+    LIVE_REFRESH_INTERVAL_MS,
+    !!sn,
+  );
 
   const posObj = (data as Record<string, Record<string, number>>)?.postion ?? {};
   const lat = posObj.lat ?? 0;

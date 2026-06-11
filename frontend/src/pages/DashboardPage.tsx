@@ -16,6 +16,7 @@ import VehicleSelector from '../components/VehicleSelector';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getVehicles, getOverallTally, getBatteryInfo, getMotorInfo } from '../api';
+import { usePolling, LIVE_REFRESH_INTERVAL_MS } from '../hooks/usePolling';
 
 interface VehicleData {
   sn: string;
@@ -54,9 +55,9 @@ export default function DashboardPage() {
     })();
   }, []);
 
-  const loadVehicleData = useCallback(async (serial: string) => {
+  const loadVehicleData = useCallback(async (serial: string, silent = false) => {
     if (!serial) return;
-    setRefreshing(true);
+    if (!silent) setRefreshing(true);
     try {
       const [t, b, m] = await Promise.all([
         getOverallTally(serial),
@@ -69,7 +70,7 @@ export default function DashboardPage() {
     } catch {
       /* handled by api layer */
     } finally {
-      setRefreshing(false);
+      if (!silent) setRefreshing(false);
     }
   }, []);
 
@@ -77,6 +78,14 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching
     if (selectedSN) void loadVehicleData(selectedSN);
   }, [selectedSN, loadVehicleData]);
+
+  usePolling(
+    () => {
+      if (selectedSN) void loadVehicleData(selectedSN, true);
+    },
+    LIVE_REFRESH_INTERVAL_MS,
+    !!selectedSN,
+  );
 
   if (loading) return <LoadingSpinner message="Loading vehicles..." />;
 
@@ -115,6 +124,13 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-4">
           <StatusBadge online={!!selectedVehicle?.isConnected} />
+          <span className="flex items-center gap-1.5 text-xs text-text-muted" title="Telemetry refreshes automatically">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-niu-cyan opacity-75 animate-ping" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-niu-cyan" />
+            </span>
+            Live
+          </span>
           <VehicleSelector
             vehicles={vehicles}
             selected={selectedSN}
